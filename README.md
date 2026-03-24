@@ -30,8 +30,7 @@ This repository intentionally stays thin and only provides:
 Clone and install the `diffusers` repository that contains `RealRestorerPipeline`:
 
 ```bash
-git clone <YOUR_DIFFUSERS_REPO_URL>
-cd diffusers
+cd RealRestorer-diffuser/diffusers
 pip install -e .
 ```
 
@@ -40,7 +39,6 @@ If you already installed the upstream `diffusers`, make sure the patched repo is
 ### 2. Install this repo
 
 ```bash
-git clone <YOUR_REALRESTORER_DIFFUSER_REPO_URL>
 cd RealRestorer-diffuser
 pip install -r requirements.txt
 pip install -e .
@@ -120,26 +118,6 @@ pipe = RealRestorerPipeline.from_pretrained(
 pipe.enable_model_cpu_offload(device=device)
 ```
 
-### 2. Load directly from original RealRestorer weights
-
-Use this when you want to load from the original RealRestorer checkpoint layout:
-
-```python
-import torch
-from diffusers import RealRestorerPipeline
-
-device = "cuda"
-dtype = torch.bfloat16
-
-pipe = RealRestorerPipeline.from_realrestorer_sources(
-    realrestorer_load="/path/to/realrestorer_ckpt_dir",
-    model_path="/path/to/shared_models",
-    device="cpu",
-    dtype=dtype,
-)
-pipe.enable_model_cpu_offload(device=device)
-```
-
 ## Degradation Prompts
 
 
@@ -161,16 +139,6 @@ CLI is optional. It is mainly for quick local testing. The recommended path is s
 
 On CUDA, the CLI will automatically enable model CPU offload.
 
-### Export a bundle
-
-```bash
-realrestorer-diffuser-export \
-  --load /path/to/realrestorer_ckpt_dir \
-  --model_path /path/to/shared_models \
-  --save_dir /path/to/packed_realrestorer_repo \
-  --device cuda \
-  --torch_dtype bfloat16
-```
 
 ### Run inference from a packaged repo
 
@@ -185,19 +153,7 @@ realrestorer-diffuser-infer \
   --seed 42
 ```
 
-### Run inference from original source weights
 
-```bash
-realrestorer-diffuser-infer \
-  --load /path/to/realrestorer_ckpt_dir \
-  --model_path /path/to/shared_models \
-  --image /path/to/input.png \
-  --prompt "Please restore this low-quality image, recovering its normal brightness and clarity." \
-  --output /path/to/output.png \
-  --device cuda \
-  --torch_dtype bfloat16 \
-  --seed 42
-```
 
 ## Notes
 
