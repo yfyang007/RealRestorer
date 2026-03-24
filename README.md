@@ -142,23 +142,6 @@ pipe.enable_model_cpu_offload(device=device)
 
 ## Degradation Prompts
 
-If you are using the local benchmark setup, the prompt files are stored under:
-
-- `/data/yfyang/bench_0903/blur/edit_prompts_en.json`
-- `/data/yfyang/bench_0903/compression/edit_prompts_en.json`
-- `/data/yfyang/bench_0903/deflare/edit_prompts_en.json`
-- `/data/yfyang/bench_0903/demoire/edit_prompts_en.json`
-- `/data/yfyang/bench_0903/hazy/edit_prompts_en.json`
-- `/data/yfyang/bench_0903/lowlight/edit_prompts_en.json`
-- `/data/yfyang/bench_0903/noise/edit_prompts_en.json`
-- `/data/yfyang/bench_0903/rain/edit_prompts_en.json`
-- `/data/yfyang/bench_0903/reflection/edit_prompts_en.json`
-
-For example, `/data/yfyang/bench_0903/reflection/edit_prompts_en.json` uses:
-
-```text
-Please remove the reflection from the image.
-```
 
 Recommended prompt templates from the benchmark:
 
