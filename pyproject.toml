@@ -1,0 +1,30 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "realrestorer-diffuser"
+version = "0.1.0"
+description = "Utilities and CLI for running RealRestorer through a diffusers-integrated pipeline."
+readme = "README.md"
+requires-python = ">=3.8"
+dependencies = [
+  "torch",
+  "transformers",
+  "accelerate",
+  "safetensors",
+  "Pillow",
+  "numpy",
+  "einops",
+  "huggingface_hub",
+]
+
+[project.scripts]
+realrestorer-diffuser-export = "realrestorer_diffuser.export_bundle:main"
+realrestorer-diffuser-infer = "realrestorer_diffuser.inference:main"
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+
+[tool.setuptools.packages.find]
+where = ["src"]
