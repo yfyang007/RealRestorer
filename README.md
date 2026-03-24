@@ -21,7 +21,7 @@ This repository intentionally stays thin and only provides:
 
 - direct usage examples
 - an export CLI for building a diffusers bundle from original RealRestorer weights
-- an inference CLI that calls `RealRestorerPipeline` directly
+- a minimal inference CLI for quick local testing
 
 ## Installation
 
@@ -56,9 +56,22 @@ If this import fails, your environment is still using the wrong `diffusers`.
 
 The local runtime requirements for this repository are also listed in [requirements.txt](requirements.txt).
 
+## Recommended Config
+
+For image restoration and editing, the recommended starting point is:
+
+- `device="cuda"`
+- `torch_dtype=torch.bfloat16`
+- `num_inference_steps=28`
+- `guidance_scale=3.0`
+- `seed=42`
+- use `pipe.enable_model_cpu_offload(device=device)` on CUDA
+
+`seed=42` is the default recommendation used in this repo.
+
 ## Quick Start
 
-The intended usage style is the standard diffusers pattern:
+The main usage path is standard `diffusers` code. Load a packaged repo, enable model CPU offload, and run inference:
 
 ```python
 import torch
@@ -66,19 +79,20 @@ from diffusers import RealRestorerPipeline
 
 device = "cuda"
 dtype = torch.bfloat16
-model_path = "/path/to/exported_realrestorer"
+seed = 42
+model_path = "/path/to/packed_realrestorer_repo"
 
 pipe = RealRestorerPipeline.from_pretrained(model_path, torch_dtype=dtype)
-pipe.to(device)
+pipe.enable_model_cpu_offload(device=device)
 
 image = pipe(
-    prompt="A cat holding a sign that says hello world",
-    height=1024,
-    width=1024,
-    num_inference_steps=4,
-    generator=torch.Generator(device=device).manual_seed(0),
+    image="/path/to/input.png",
+    prompt="Please remove the reflection from the image.",
+    num_inference_steps=28,
+    guidance_scale=3.0,
+    seed=seed,
 ).images[0]
-image.save("t2i_output.png")
+image.save("output.png")
 ```
 
 More examples:
@@ -88,19 +102,22 @@ More examples:
 
 ## Loading Modes
 
-### 1. Load from a diffusers bundle
+### 1. Load from a packaged diffusers repo
 
-Use this when you already exported a self-contained bundle:
+Use this when you already exported a self-contained model repo:
 
 ```python
 import torch
 from diffusers import RealRestorerPipeline
 
+device = "cuda"
+dtype = torch.bfloat16
+
 pipe = RealRestorerPipeline.from_pretrained(
-    "/path/to/exported_realrestorer",
-    torch_dtype=torch.bfloat16,
+    "/path/to/packed_realrestorer_repo",
+    torch_dtype=dtype,
 )
-pipe.to("cuda")
+pipe.enable_model_cpu_offload(device=device)
 ```
 
 ### 2. Load directly from original RealRestorer weights
@@ -111,22 +128,55 @@ Use this when you want to load from the original RealRestorer checkpoint layout:
 import torch
 from diffusers import RealRestorerPipeline
 
+device = "cuda"
+dtype = torch.bfloat16
+
 pipe = RealRestorerPipeline.from_realrestorer_sources(
     realrestorer_load="/path/to/realrestorer_ckpt_dir",
     model_path="/path/to/shared_models",
-    device="cuda",
-    dtype=torch.bfloat16,
+    device="cpu",
+    dtype=dtype,
 )
-pipe.to("cuda")
+pipe.enable_model_cpu_offload(device=device)
 ```
+
+## Degradation Prompts
+
+If you are using the local benchmark setup, the prompt files are stored under:
+
+- `/data/yfyang/bench_0903/blur/edit_prompts_en.json`
+- `/data/yfyang/bench_0903/compression/edit_prompts_en.json`
+- `/data/yfyang/bench_0903/deflare/edit_prompts_en.json`
+- `/data/yfyang/bench_0903/demoire/edit_prompts_en.json`
+- `/data/yfyang/bench_0903/hazy/edit_prompts_en.json`
+- `/data/yfyang/bench_0903/lowlight/edit_prompts_en.json`
+- `/data/yfyang/bench_0903/noise/edit_prompts_en.json`
+- `/data/yfyang/bench_0903/rain/edit_prompts_en.json`
+- `/data/yfyang/bench_0903/reflection/edit_prompts_en.json`
+
+For example, `/data/yfyang/bench_0903/reflection/edit_prompts_en.json` uses:
+
+```text
+Please remove the reflection from the image.
+```
+
+Recommended prompt templates from the benchmark:
+
+- `blur`: `Please deblur the image and make it sharper`
+- `compression`: `Please restore the image clarity and artifacts.`
+- `deflare`: `Please remove the lens flare and glare from the image.`
+- `demoire`: `Please remove the moire patterns from the image`
+- `hazy`: `Please dehaze the image`
+- `lowlight`: `Please restore this low-quality image, recovering its normal brightness and clarity.`
+- `noise`: `Please remove noise from the image.`
+- `rain`: `Please remove the rain from the image and restore its clarity.`
+- `reflection`: `Please remove the reflection from the image.`
 
 ## CLI
 
-CLI is optional. The main usage path is still:
+CLI is optional. It is mainly for quick local testing. The recommended path is still direct Python usage with `RealRestorerPipeline`.
 
-```python
-from diffusers import RealRestorerPipeline
-```
+On CUDA, the CLI will automatically enable model CPU offload.
 
 ### Export a bundle
 
@@ -134,39 +184,42 @@ from diffusers import RealRestorerPipeline
 realrestorer-diffuser-export \
   --load /path/to/realrestorer_ckpt_dir \
   --model_path /path/to/shared_models \
-  --save_dir /path/to/exported_realrestorer \
+  --save_dir /path/to/packed_realrestorer_repo \
   --device cuda \
   --torch_dtype bfloat16
 ```
 
-### Run inference from original weights
+### Run inference from a packaged repo
+
+```bash
+realrestorer-diffuser-infer \
+  --model_path /path/to/packed_realrestorer_repo \
+  --image /path/to/input.png \
+  --prompt "Please remove the reflection from the image." \
+  --output /path/to/output.png \
+  --device cuda \
+  --torch_dtype bfloat16 \
+  --seed 42
+```
+
+### Run inference from original source weights
 
 ```bash
 realrestorer-diffuser-infer \
   --load /path/to/realrestorer_ckpt_dir \
   --model_path /path/to/shared_models \
   --image /path/to/input.png \
-  --prompt "Restore the details and keep the original composition." \
+  --prompt "Please restore this low-quality image, recovering its normal brightness and clarity." \
   --output /path/to/output.png \
   --device cuda \
-  --torch_dtype bfloat16
-```
-
-### Run inference from an exported bundle
-
-```bash
-realrestorer-diffuser-infer \
-  --pretrained_model_name_or_path /path/to/exported_realrestorer \
-  --image /path/to/input.png \
-  --prompt "Restore the details and keep the original composition." \
-  --output /path/to/output.png \
-  --device cuda \
-  --torch_dtype bfloat16
+  --torch_dtype bfloat16 \
+  --seed 42
 ```
 
 ## Notes
 
-- `model_path` can point to a directory that contains both the RealRestorer VAE asset and the local Qwen2.5-VL model.
+- `model_path` is the packaged repo path for direct inference.
+- When used together with `--load`, `model_path` is treated as the shared asset root.
 - For text-to-image, omit `image`.
 - The exported bundle is intended for direct `RealRestorerPipeline.from_pretrained(...)` usage.
 - The core implementation is maintained in the patched `diffusers` repo, not in this repository.

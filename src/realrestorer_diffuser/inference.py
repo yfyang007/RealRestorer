@@ -29,24 +29,21 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="Run RealRestorer inference through the installed diffusers integration."
     )
-
-    model_group = parser.add_mutually_exclusive_group(required=True)
-    model_group.add_argument(
-        "--pretrained_model_name_or_path",
-        type=str,
-        default=None,
-        help="Path to an exported diffusers bundle.",
-    )
-    model_group.add_argument(
+    parser.add_argument(
         "--load",
         type=str,
         default=None,
-        help="Original RealRestorer checkpoint directory or file.",
+        help="Original RealRestorer checkpoint directory or file. Only needed when loading from source weights.",
     )
 
-    parser.add_argument("--model_path", type=str, default=None, help="Optional shared model root.")
-    parser.add_argument("--ae_path", type=str, default='/mnt/jfs/hf_models/FLUX.1-dev/ae.safetensors', help="Explicit VAE weights path.")
-    parser.add_argument("--qwen2vl_path", type=str, default='/mnt/jfs/hf_models/qwen25vl-7b-instruct', help="Explicit Qwen2.5-VL model path.")
+    parser.add_argument(
+        "--model_path",
+        type=str,
+        default=None,
+        help="Packaged repo path for direct inference, or shared asset root when used together with --load.",
+    )
+    parser.add_argument("--ae_path", type=str, default=None, help="Explicit VAE weights path.")
+    parser.add_argument("--qwen2vl_path", type=str, default=None, help="Explicit Qwen2.5-VL model path.")
 
     parser.add_argument("--prompt", type=str, required=True, help="Generation or editing prompt.")
     parser.add_argument("--negative_prompt", type=str, default=None, help="Negative prompt.")
@@ -81,29 +78,46 @@ def parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
+def configure_pipeline_memory(pipe: RealRestorerPipeline, device: str) -> None:
+    if str(device).startswith("cuda"):
+        pipe.enable_model_cpu_offload(device=device)
+    else:
+        pipe.to(device)
+
+
 def main() -> None:
     args = parse_args()
     torch_dtype = DTYPE_MAP[args.torch_dtype]
 
-    if args.pretrained_model_name_or_path is not None:
+    if args.load is None and args.model_path is None:
+        raise ValueError(
+            "Pass --model_path for direct inference from a packaged repo."
+        )
+    if args.load is not None and args.model_path is None and (args.ae_path is None or args.qwen2vl_path is None):
+        raise ValueError(
+            "When using --load without --model_path, you must pass both --ae_path and --qwen2vl_path."
+        )
+
+    if args.load is None:
         pipe = RealRestorerPipeline.from_pretrained(
-            args.pretrained_model_name_or_path,
+            args.model_path,
             torch_dtype=torch_dtype,
         )
     else:
+        source_device = "cpu" if str(args.device).startswith("cuda") else args.device
         pipe = RealRestorerPipeline.from_realrestorer_sources(
             realrestorer_load=args.load,
             model_path=args.model_path,
             ae_path=args.ae_path,
             qwen2vl_path=args.qwen2vl_path,
-            device=args.device,
+            device=source_device,
             dtype=torch_dtype,
             mode=args.mode,
             version=args.version,
             model_guidance=args.model_guidance,
             max_length=args.max_length,
         )
-    pipe.to(args.device)
+    configure_pipeline_memory(pipe=pipe, device=args.device)
 
     image = Image.open(args.image).convert("RGB") if args.image else None
     negative_prompt = args.negative_prompt
