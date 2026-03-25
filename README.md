@@ -28,7 +28,7 @@ RealRestorer packages three things in one place:
 
 ## 🔥 Updates
 
-- [03/2026] Top-level inference entries `infer_realrestorer.py` and `infer_degradation.py` are reorganized and ready for direct use.
+- [03/2026] Top-level script entries `infer_realrestorer.py`, `infer_degradation.py`, and `evaluate_realir_bench.py` are ready for direct use.
 - [03/2026] The standalone degradation pipeline is moved into this repository under `degradation_pipeline/`.
 - [03/2026] The repository layout is cleaned up into `assets`, `degradation_pipeline`, `RealIR-Bench`, `diffusers`, and `RealRestorer`.
 
@@ -36,7 +36,7 @@ RealRestorer packages three things in one place:
 
 - [x] `infer_realrestorer.py` for packaged-model inference
 - [x] `infer_degradation.py` for synthetic degradation generation
-- [x] `RealIR-Bench/evaluate_fs.py` for Step1X-Edit-based restoration benchmark evaluation
+- [x] `evaluate_realir_bench.py` for benchmark evaluation
 - [ ] Qwen-Image-2511 version
 
 ## 🚀 Quick Start
@@ -60,6 +60,15 @@ python -m pip install -r requirements.txt
 python -m pip install -e .
 ```
 
+A full `pip list` export from the working `kontext` environment is also provided in `requirements_kontext_full.txt`.
+
+If you also want to run the benchmark evaluator, install the extra dependencies:
+
+```bash
+cd /data/yfyang/project/RealRestorer-diffuser
+python -m pip install -r RealIR-Bench/requirements.txt
+```
+
 You can verify the environment with:
 
 ```bash
@@ -76,7 +85,15 @@ python -c "from diffusers import RealRestorerPipeline; print(RealRestorerPipelin
 - Recommended prompt: `Restore the details and keep the original composition.`
 - Reflection benchmark prompt: `Please remove the reflection from the image.`
 
-### 4. Run RealRestorer Inference
+### 4. Top-Level Scripts
+
+- `python3 infer_realrestorer.py ...` for RealRestorer inference
+- `python3 infer_degradation.py ...` for synthetic degradation generation
+- `python3 evaluate_realir_bench.py ...` for RealIR-Bench evaluation
+
+## 🧩 Inference Scripts
+
+### RealRestorer Inference
 
 If you already have an exported or packaged RealRestorer bundle:
 
@@ -110,7 +127,7 @@ Then run `infer_realrestorer.py` on the exported bundle.
 
 ## 🌫️ Degradation Pipeline
 
-The standalone degradation pipeline is located in `degradation_pipeline/` and supports:
+The standalone degradation pipeline is wrapped by `infer_degradation.py` and supports:
 
 - `blur`
 - `haze`
@@ -131,52 +148,46 @@ python3 infer_degradation.py \
   --output /path/to/output.png
 ```
 
-The script also writes metadata to a JSON file next to the output image by default. For programmatic use:
+The script writes metadata to a JSON file next to the output image by default.
 
-```python
-from degradation_pipeline import DegradationPipeline
+## 📊 Benchmark Evaluation
 
-pipe = DegradationPipeline(device="cuda:0")
-result = pipe(
-    "/path/to/input.png",
-    "reflection",
-    reflection_ckpt_path="/path/to/130_net_G.pth",
-    reflection_image="/path/to/reflection.png",
-    seed=42,
-)
+`evaluate_realir_bench.py` is the outer-level entry for paired-directory evaluation. It compares:
 
-result.images[0].save("degraded.png")
-print(result.metadata[0])
-```
+- one reference directory
+- one prediction directory with the same relative file names
 
-## 📊 RealIR-Bench
-
-`RealIR-Bench/` contains a lightweight evaluator that keeps the benchmark focused on:
-
-- `LPIPS_Score`
-- `VLM_Score_Diff`
-- `FS = 0.2 * VLM_Score_Diff * (1 - LPIPS_Score)`
-
-Benchmark download:
+and outputs three aggregated metrics for the selected task:
 
 ```text
-https://huggingface.co/datasets/YOUR_ORG/RealIR-Bench
+LPIPS_Score = mean(LPIPS)
+VLM_Score_Diff = mean(VLM_Score_Diff)
+FS = mean(0.2 * VLM_Score_Diff * (1 - LPIPS))
 ```
 
 Example evaluation command:
 
 ```bash
-python3 RealIR-Bench/evaluate_fs.py \
-  --data-root /path/to/RealIR-Bench \
-  --models realrestorer \
-  --vlm-model-path /path/to/Qwen3-VL-8B-Instruct \
-  --num-workers 1
+python3 evaluate_realir_bench.py \
+  --ref-dir /path/to/reference_dir \
+  --pred-dir /path/to/prediction_dir \
+  --task reflection \
+  --vlm-model-path /path/to/Qwen3-VL-8B-Instruct
 ```
+
+If you want per-image details as well, add:
+
+```bash
+--output-csv /path/to/results.csv
+```
+
+The underlying evaluator implementation remains in `RealIR-Bench/evaluate_fs.py`, while the release-facing script stays at the repository root together with the inference entries.
 
 ## 🗂️ Project Structure
 
 ```text
 RealRestorer-diffuser/
+├── evaluate_realir_bench.py   # top-level benchmark evaluation entry
 ├── infer_realrestorer.py      # top-level RealRestorer inference entry
 ├── infer_degradation.py       # top-level degradation synthesis entry
 ├── assets/                    # teaser and README assets

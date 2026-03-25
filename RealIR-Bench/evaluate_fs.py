@@ -1,43 +1,32 @@
 #!/usr/bin/env python3
-"""Minimal RealIR benchmark evaluator for LPIPS, VLM_Score_Diff and FS."""
+"""Evaluate paired restoration results with LPIPS, local Qwen3-VL, and FS."""
+
+from __future__ import annotations
 
 import argparse
 import csv
-import math
 import multiprocessing as mp
 import os
 import random
 import re
 import sys
 import time
-from collections import defaultdict
-from os.path import basename
+from pathlib import Path
 from statistics import mean
-from typing import Dict, Iterable, List, Optional, Sequence, Set, Tuple
-
-import megfile
-import torch
-from PIL import Image
-import lpips
-from qwen_vl_utils import process_vision_info
-from transformers import AutoProcessor, Qwen3VLForConditionalGeneration
-from torchvision.transforms import ToTensor
+from typing import Dict, Iterable, List, Optional, Sequence, Tuple
 
 
-DEFAULT_TASKS = [
-    "blur",
-    "compression",
-    "demoire",
-    "noise",
-    "deflare",
-    "hazy",
-    "lowlight",
-    "rain",
-    "reflection",
-]
-IMAGE_PATTERNS = ("*.png", "*.jpg", "*.jpeg", "*.bmp", "*.tif", "*.webp")
-CSV_FIELDS = ["Model", "Task", "ImageName", "LPIPS_Score", "VLM_Score_Diff", "FS"]
-SUMMARY_FIELDS = ["Model", "Task", "NumImages", "LPIPS_Score_Mean", "VLM_Score_Diff_Mean", "FS_Mean"]
+megfile = None
+torch = None
+Image = None
+lpips = None
+process_vision_info = None
+AutoProcessor = None
+Qwen3VLForConditionalGeneration = None
+ToTensor = None
+
+IMAGE_PATTERNS = ("*.png", "*.jpg", "*.jpeg", "*.bmp", "*.tif", "*.tiff", "*.webp", "JPG")
+CSV_FIELDS = ["ImageName", "ReferencePath", "PredictionPath", "LPIPS_Score", "VLM_Score_Diff", "FS"]
 DEFAULT_VLM_TORCH_DTYPE = "auto"
 DEFAULT_VLM_MAX_NEW_TOKENS = 32
 
@@ -45,6 +34,42 @@ WORKER_VLM_SCORER = None
 WORKER_LPIPS_MODEL = None
 WORKER_TO_TENSOR = None
 WORKER_DEVICE = None
+
+
+def import_runtime_dependencies() -> None:
+    global megfile, torch, Image, lpips, process_vision_info, AutoProcessor, Qwen3VLForConditionalGeneration, ToTensor
+
+    if all(
+        dependency is not None
+        for dependency in (
+            megfile,
+            torch,
+            Image,
+            lpips,
+            process_vision_info,
+            AutoProcessor,
+            Qwen3VLForConditionalGeneration,
+            ToTensor,
+        )
+    ):
+        return
+
+    import megfile as _megfile
+    import torch as _torch
+    import lpips as _lpips
+    from PIL import Image as _Image
+    from qwen_vl_utils import process_vision_info as _process_vision_info
+    from torchvision.transforms import ToTensor as _ToTensor
+    from transformers import AutoProcessor as _AutoProcessor, Qwen3VLForConditionalGeneration as _Qwen3VLForConditionalGeneration
+
+    megfile = _megfile
+    torch = _torch
+    Image = _Image
+    lpips = _lpips
+    process_vision_info = _process_vision_info
+    AutoProcessor = _AutoProcessor
+    Qwen3VLForConditionalGeneration = _Qwen3VLForConditionalGeneration
+    ToTensor = _ToTensor
 
 
 def setup_seed(seed: int) -> None:
@@ -95,18 +120,16 @@ class LocalQwenVLScorer:
         query = (
             f"Evaluate ONLY whether the image exhibits the degradation type “{task}” and how severe it is. "
             "Ignore any quality aspects unrelated to this degradation and any semantic content.\n"
-            f"Method: Divide the image into regions (e.g., a 3×3 grid). Inspect each region for “{task}”, "
-            "estimate the proportion of affected area and its severity, then aggregate to a SINGLE INTEGER score. "
-            "If the distribution is uneven, weight by region area. For borderline cases, choose the nearest level. "
+            f"Method: Divide the image into regions. Inspect each region for “{task}”, estimate the proportion of "
+            "affected area and its severity, then aggregate to a SINGLE INTEGER score. "
             "Do NOT output your reasoning.\n"
-            "Scale (integers 1–5):\n"
+            "Scale (integers 1-5):\n"
             f"5 = No “{task}”\n"
-            "4 = Mild, small/localized presence (≈≤20% of areas)\n"
-            "3 = Moderate, noticeable across multiple areas (≈20–50%)\n"
-            "2 = Severe, large portion clearly affected (≈50–80%)\n"
-            "1 = Extreme, nearly the entire image (≈>80%)\n"
-            "Output: Return ONLY “退化分数：<1-5>”. No extra text, symbols, or line breaks, within 10 words. "
-            "Example: 退化分数：4"
+            "4 = Mild degradation\n"
+            "3 = Moderate degradation\n"
+            "2 = Severe degradation\n"
+            "1 = Extreme degradation\n"
+            "Output: Return ONLY “退化分数：<1-5>”. Example: 退化分数：4"
         )
         messages = [
             {"role": "system", "content": "You are a helpful assistant."},
@@ -163,9 +186,13 @@ def parse_vlm_score(response_text: str) -> Optional[float]:
 
 def resize_for_vlm(image: Image.Image, target_pixels: int = 512 * 512) -> Image.Image:
     aspect_ratio = max(image.width / image.height, 1e-6)
-    target_width = max(1, int(math.sqrt(target_pixels * aspect_ratio)))
-    target_height = max(1, int(math.sqrt(target_pixels / aspect_ratio)))
+    target_width = max(1, int((target_pixels * aspect_ratio) ** 0.5))
+    target_height = max(1, int((target_pixels / aspect_ratio) ** 0.5))
     return image.resize((target_width, target_height), Image.LANCZOS)
+
+
+def format_float(value: float) -> str:
+    return f"{value:.6f}"
 
 
 def is_remote_path(path: str) -> bool:
@@ -180,17 +207,6 @@ def ensure_parent_dir(path: str) -> None:
         os.makedirs(parent, exist_ok=True)
 
 
-def format_float(value: float) -> str:
-    return f"{value:.6f}"
-
-
-def smart_read_csv(path: str) -> List[Dict[str, str]]:
-    if not megfile.smart_exists(path):
-        return []
-    with megfile.smart_open(path, "r", encoding="utf-8-sig") as handle:
-        return list(csv.DictReader(handle))
-
-
 def smart_write_csv(path: str, rows: Sequence[Dict[str, str]], fieldnames: Sequence[str]) -> None:
     ensure_parent_dir(path)
     with megfile.smart_open(path, "w", encoding="utf-8-sig") as handle:
@@ -198,6 +214,52 @@ def smart_write_csv(path: str, rows: Sequence[Dict[str, str]], fieldnames: Seque
         writer.writeheader()
         for row in rows:
             writer.writerow(row)
+
+
+def normalize_dir(path: str) -> str:
+    return path.rstrip("/\\")
+
+
+def relative_key(path: str, root: str) -> str:
+    normalized_root = normalize_dir(root)
+    normalized_path = path.replace("\\", "/")
+    normalized_root = normalized_root.replace("\\", "/")
+    prefix = normalized_root + "/"
+    if normalized_path.startswith(prefix):
+        return normalized_path[len(prefix):]
+    return os.path.basename(normalized_path)
+
+
+def collect_image_map(root_dir: str) -> Dict[str, str]:
+    image_map: Dict[str, str] = {}
+    for pattern in IMAGE_PATTERNS:
+        glob_pattern = megfile.smart_path_join(root_dir, "**", pattern)
+        for image_path in megfile.smart_glob(glob_pattern, recursive=True, missing_ok=True):
+            key = relative_key(image_path, root_dir)
+            image_map[key] = image_path
+    return image_map
+
+
+def collect_items(reference_dir: str, prediction_dir: str) -> List[Dict[str, str]]:
+    reference_map = collect_image_map(reference_dir)
+    prediction_map = collect_image_map(prediction_dir)
+    shared_keys = sorted(set(reference_map) & set(prediction_map))
+    if not shared_keys:
+        raise RuntimeError(
+            "No matched image pairs found between --ref-dir and --pred-dir. "
+            "Both directories must contain the same relative file names."
+        )
+
+    items: List[Dict[str, str]] = []
+    for key in shared_keys:
+        items.append(
+            {
+                "image_name": key,
+                "reference_image_path": reference_map[key],
+                "prediction_image_path": prediction_map[key],
+            }
+        )
+    return items
 
 
 def resolve_default_workers(requested_workers: Optional[int], device_names: Sequence[str]) -> int:
@@ -225,84 +287,10 @@ def build_device_names(device: str, requested_workers: Optional[int]) -> List[st
     return [f"cuda:{idx}" for idx in range(worker_count)]
 
 
-def discover_models(data_root: str, tasks: Sequence[str], excluded_names: Set[str]) -> List[str]:
-    discovered: List[str] = []
-    seen: Set[str] = set()
-    for task in tasks:
-        task_root = megfile.smart_path_join(data_root, task)
-        if not megfile.smart_isdir(task_root):
-            continue
-        for entry in sorted(megfile.smart_listdir(task_root)):
-            if entry in excluded_names:
-                continue
-            model_dir = megfile.smart_path_join(task_root, entry)
-            if megfile.smart_isdir(model_dir) and entry not in seen:
-                seen.add(entry)
-                discovered.append(entry)
-    return discovered
-
-
-def load_existing_results(output_csv: str) -> Tuple[List[Dict[str, str]], Set[Tuple[str, str, str]]]:
-    rows = smart_read_csv(output_csv)
-    existing_keys: Set[Tuple[str, str, str]] = set()
-    for row in rows:
-        model = row.get("Model")
-        task = row.get("Task")
-        image_name = row.get("ImageName")
-        if model and task and image_name:
-            existing_keys.add((model, task, image_name))
-    return rows, existing_keys
-
-
-def resolve_reference_model(model_name: str, bench_model_name: str, bench_gpt_model_name: str, gpt_bench_model_key: str) -> str:
-    if model_name == gpt_bench_model_key:
-        return bench_gpt_model_name
-    return bench_model_name
-
-
-def collect_items(args: argparse.Namespace, existing_keys: Set[Tuple[str, str, str]]) -> Tuple[List[str], List[Dict[str, str]]]:
-    excluded_names = {args.bench_model_name, args.bench_gpt_model_name}
-    models = list(args.models) if args.models else discover_models(args.data_root, args.tasks, excluded_names)
-    if not models:
-        raise RuntimeError("No models found. Pass --models explicitly or check --data-root.")
-
-    items: List[Dict[str, str]] = []
-    for task in args.tasks:
-        for model_name in models:
-            model_dir = megfile.smart_path_join(args.data_root, task, model_name)
-            if not megfile.smart_isdir(model_dir):
-                continue
-            reference_model = resolve_reference_model(
-                model_name=model_name,
-                bench_model_name=args.bench_model_name,
-                bench_gpt_model_name=args.bench_gpt_model_name,
-                gpt_bench_model_key=args.gpt_bench_model_key,
-            )
-            for pattern in IMAGE_PATTERNS:
-                image_paths = megfile.smart_glob(megfile.smart_path_join(model_dir, pattern), recursive=False, missing_ok=True)
-                for edited_path in image_paths:
-                    image_name = basename(edited_path)
-                    item_key = (model_name, task, image_name)
-                    if item_key in existing_keys:
-                        continue
-                    original_path = megfile.smart_path_join(args.data_root, task, reference_model, image_name)
-                    if not megfile.smart_exists(original_path):
-                        continue
-                    items.append(
-                        {
-                            "model_name": model_name,
-                            "task": task,
-                            "image_name": image_name,
-                            "original_image_path": original_path,
-                            "edited_image_path": edited_path,
-                        }
-                    )
-    return models, items
-
-
 def init_worker(device_queue, config: Dict[str, str]) -> None:
     global WORKER_DEVICE, WORKER_LPIPS_MODEL, WORKER_TO_TENSOR, WORKER_VLM_SCORER
 
+    import_runtime_dependencies()
     device_name = device_queue.get()
     WORKER_DEVICE = torch.device(device_name)
     torch.set_num_threads(1)
@@ -320,33 +308,33 @@ def init_worker(device_queue, config: Dict[str, str]) -> None:
     )
 
 
-def process_single_item(item: Dict[str, str], max_retries: int) -> Optional[Dict[str, str]]:
+def process_single_item(item: Dict[str, str], task: str, max_retries: int) -> Optional[Dict[str, str]]:
     for attempt in range(max_retries):
         try:
-            with megfile.smart_open(item["original_image_path"], "rb") as handle:
-                pil_original = Image.open(handle).convert("RGB")
-            with megfile.smart_open(item["edited_image_path"], "rb") as handle:
-                pil_edited_raw = Image.open(handle).convert("RGB")
+            with megfile.smart_open(item["reference_image_path"], "rb") as handle:
+                pil_reference = Image.open(handle).convert("RGB")
+            with megfile.smart_open(item["prediction_image_path"], "rb") as handle:
+                pil_prediction_raw = Image.open(handle).convert("RGB")
 
-            pil_edited = pil_edited_raw.resize(pil_original.size, Image.LANCZOS)
+            pil_prediction = pil_prediction_raw.resize(pil_reference.size, Image.LANCZOS)
 
             with torch.no_grad():
-                tensor_original = WORKER_TO_TENSOR(pil_original).unsqueeze(0).to(WORKER_DEVICE) * 2 - 1
-                tensor_edited = WORKER_TO_TENSOR(pil_edited).unsqueeze(0).to(WORKER_DEVICE) * 2 - 1
-                lpips_score = float(WORKER_LPIPS_MODEL(tensor_original, tensor_edited).item())
+                tensor_reference = WORKER_TO_TENSOR(pil_reference).unsqueeze(0).to(WORKER_DEVICE) * 2 - 1
+                tensor_prediction = WORKER_TO_TENSOR(pil_prediction).unsqueeze(0).to(WORKER_DEVICE) * 2 - 1
+                lpips_score = float(WORKER_LPIPS_MODEL(tensor_reference, tensor_prediction).item())
 
-            original_vlm_score = WORKER_VLM_SCORER.score_image(resize_for_vlm(pil_original), item["task"])
-            edited_vlm_score = WORKER_VLM_SCORER.score_image(resize_for_vlm(pil_edited), item["task"])
-            if original_vlm_score is None or edited_vlm_score is None:
+            reference_vlm_score = WORKER_VLM_SCORER.score_image(resize_for_vlm(pil_reference), task)
+            prediction_vlm_score = WORKER_VLM_SCORER.score_image(resize_for_vlm(pil_prediction), task)
+            if reference_vlm_score is None or prediction_vlm_score is None:
                 raise RuntimeError("VLM returned an unparsable score.")
 
-            vlm_score_diff = max(0.0, float(edited_vlm_score - original_vlm_score))
+            vlm_score_diff = max(0.0, float(prediction_vlm_score - reference_vlm_score))
             fs_score = 0.2 * vlm_score_diff * (1.0 - lpips_score)
 
             return {
-                "Model": item["model_name"],
-                "Task": item["task"],
                 "ImageName": item["image_name"],
+                "ReferencePath": item["reference_image_path"],
+                "PredictionPath": item["prediction_image_path"],
                 "LPIPS_Score": format_float(lpips_score),
                 "VLM_Score_Diff": format_float(vlm_score_diff),
                 "FS": format_float(fs_score),
@@ -354,7 +342,7 @@ def process_single_item(item: Dict[str, str], max_retries: int) -> Optional[Dict
         except Exception as error:
             if attempt >= max_retries - 1:
                 print(
-                    f"Failed to process {item['edited_image_path']} after {max_retries} attempts: {error}",
+                    f"Failed to process {item['image_name']} after {max_retries} attempts: {error}",
                     file=sys.stderr,
                 )
                 return None
@@ -362,13 +350,19 @@ def process_single_item(item: Dict[str, str], max_retries: int) -> Optional[Dict
     return None
 
 
+def _process_single_item_wrapper(payload: Tuple[Dict[str, str], str, int]) -> Optional[Dict[str, str]]:
+    item, task, max_retries = payload
+    return process_single_item(item=item, task=task, max_retries=max_retries)
+
+
 def evaluate_items(
     items: Sequence[Dict[str, str]],
+    task: str,
     device_names: Sequence[str],
     worker_config: Dict[str, str],
     num_workers: int,
     max_retries: int,
-) -> List[Dict[str, str]]:
+    ) -> List[Dict[str, str]]:
     if not items:
         return []
 
@@ -383,96 +377,35 @@ def evaluate_items(
         initializer=init_worker,
         initargs=(device_queue, worker_config),
     ) as pool:
-        for index, result in enumerate(
-            pool.imap_unordered(_process_single_item_wrapper, [(item, max_retries) for item in items]),
-            start=1,
-        ):
+        payloads = [(item, task, max_retries) for item in items]
+        for index, result in enumerate(pool.imap_unordered(_process_single_item_wrapper, payloads), start=1):
             if result is not None:
                 results.append(result)
             if index % 50 == 0 or index == len(items):
-                print(f"Processed {index}/{len(items)} image pairs.")
-    return results
+                print(f"Processed {index}/{len(items)} image pairs.", file=sys.stderr)
+    return sorted(results, key=lambda row: row["ImageName"])
 
 
-def _process_single_item_wrapper(payload: Tuple[Dict[str, str], int]) -> Optional[Dict[str, str]]:
-    item, max_retries = payload
-    return process_single_item(item, max_retries=max_retries)
-
-
-def sort_rows(rows: Iterable[Dict[str, str]]) -> List[Dict[str, str]]:
-    return sorted(rows, key=lambda row: (row["Model"], row["Task"], row["ImageName"]))
-
-
-def build_summary_rows(rows: Sequence[Dict[str, str]]) -> List[Dict[str, str]]:
-    grouped: Dict[Tuple[str, str], Dict[str, List[float]]] = defaultdict(
-        lambda: {"LPIPS_Score": [], "VLM_Score_Diff": [], "FS": []}
-    )
-    for row in rows:
-        key = (row["Model"], row["Task"])
-        grouped[key]["LPIPS_Score"].append(float(row["LPIPS_Score"]))
-        grouped[key]["VLM_Score_Diff"].append(float(row["VLM_Score_Diff"]))
-        grouped[key]["FS"].append(float(row["FS"]))
-
-    summary_rows: List[Dict[str, str]] = []
-    per_model_totals: Dict[str, Dict[str, List[float]]] = defaultdict(
-        lambda: {"LPIPS_Score": [], "VLM_Score_Diff": [], "FS": []}
-    )
-
-    for (model_name, task), metrics in sorted(grouped.items()):
-        row = {
-            "Model": model_name,
-            "Task": task,
-            "NumImages": str(len(metrics["FS"])),
-            "LPIPS_Score_Mean": format_float(mean(metrics["LPIPS_Score"])),
-            "VLM_Score_Diff_Mean": format_float(mean(metrics["VLM_Score_Diff"])),
-            "FS_Mean": format_float(mean(metrics["FS"])),
-        }
-        summary_rows.append(row)
-        per_model_totals[model_name]["LPIPS_Score"].extend(metrics["LPIPS_Score"])
-        per_model_totals[model_name]["VLM_Score_Diff"].extend(metrics["VLM_Score_Diff"])
-        per_model_totals[model_name]["FS"].extend(metrics["FS"])
-
-    for model_name in sorted(per_model_totals):
-        metrics = per_model_totals[model_name]
-        summary_rows.append(
-            {
-                "Model": model_name,
-                "Task": "Average",
-                "NumImages": str(len(metrics["FS"])),
-                "LPIPS_Score_Mean": format_float(mean(metrics["LPIPS_Score"])),
-                "VLM_Score_Diff_Mean": format_float(mean(metrics["VLM_Score_Diff"])),
-                "FS_Mean": format_float(mean(metrics["FS"])),
-            }
-        )
-    return summary_rows
-
-
-def print_model_averages(summary_rows: Sequence[Dict[str, str]]) -> None:
-    average_rows = [row for row in summary_rows if row["Task"] == "Average"]
-    if not average_rows:
-        print("No summary rows available.")
-        return
-    print("\nModel averages:")
-    for row in average_rows:
-        print(
-            f"{row['Model']}: "
-            f"LPIPS={row['LPIPS_Score_Mean']}  "
-            f"VLM_Diff={row['VLM_Score_Diff_Mean']}  "
-            f"FS={row['FS_Mean']}"
-        )
+def build_summary(task: str, rows: Sequence[Dict[str, str]]) -> Dict[str, str]:
+    return {
+        "Task": task,
+        "NumImages": str(len(rows)),
+        "LPIPS_Score": format_float(mean(float(row["LPIPS_Score"]) for row in rows)),
+        "VLM_Score_Diff": format_float(mean(float(row["VLM_Score_Diff"]) for row in rows)),
+        "FS": format_float(mean(float(row["FS"]) for row in rows)),
+    }
 
 
 def build_argparser() -> argparse.ArgumentParser:
-    default_output_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "results")
     parser = argparse.ArgumentParser(
-        description="Evaluate RealIR outputs with LPIPS and a local Qwen3-VL model, then compute FS = 0.2 * VLM_Score_Diff * (1 - LPIPS)."
+        description=(
+            "Evaluate a prediction directory against a reference directory with LPIPS and a local Qwen3-VL model, "
+            "then compute FS = 0.2 * VLM_Score_Diff * (1 - LPIPS)."
+        )
     )
-    parser.add_argument("--data-root", default="s3://yfyang/evalu", help="Root directory of benchmark data.")
-    parser.add_argument("--models", nargs="*", default=None, help="Model directory names to evaluate. Omit to auto-discover.")
-    parser.add_argument("--tasks", nargs="*", default=DEFAULT_TASKS, help="Tasks to evaluate.")
-    parser.add_argument("--bench-model-name", default="bench", help="Reference image directory name for most models.")
-    parser.add_argument("--bench-gpt-model-name", default="bench_gpt", help="Reference image directory name for the GPT benchmark model.")
-    parser.add_argument("--gpt-bench-model-key", default="gpt_bench", help="Model name that should use --bench-gpt-model-name.")
+    parser.add_argument("--ref-dir", required=True, help="Reference image directory.")
+    parser.add_argument("--pred-dir", required=True, help="Prediction image directory.")
+    parser.add_argument("--task", required=True, help="Degradation type, for example reflection, rain, blur, or noise.")
     parser.add_argument(
         "--vlm-model-path",
         default=os.environ.get("QWEN3_VL_MODEL_PATH"),
@@ -488,16 +421,10 @@ def build_argparser() -> argparse.ArgumentParser:
     )
     parser.add_argument("--max-retries", type=int, default=3, help="Retries per image pair.")
     parser.add_argument("--seed", type=int, default=20, help="Random seed.")
-    parser.add_argument("--force-recompute", action="store_true", help="Ignore existing CSV cache.")
     parser.add_argument(
         "--output-csv",
-        default=os.path.join(default_output_dir, "fs_scores.csv"),
-        help="Detailed per-image CSV path.",
-    )
-    parser.add_argument(
-        "--summary-csv",
-        default=os.path.join(default_output_dir, "fs_summary.csv"),
-        help="Per-task and per-model summary CSV path.",
+        default=None,
+        help="Optional per-image output CSV path.",
     )
     return parser
 
@@ -508,6 +435,7 @@ def main() -> int:
     if not args.vlm_model_path:
         parser.error("--vlm-model-path is required. You can also set QWEN3_VL_MODEL_PATH.")
 
+    import_runtime_dependencies()
     setup_seed(args.seed)
     mp.set_start_method("spawn", force=True)
 
@@ -517,19 +445,7 @@ def main() -> int:
 
     device_names = build_device_names(args.device, args.num_workers)
     num_workers = resolve_default_workers(args.num_workers, device_names)
-
-    print(f"Using devices: {', '.join(device_names[:num_workers])}")
-    print(f"Workers: {num_workers}")
-
-    cached_rows: List[Dict[str, str]] = []
-    existing_keys: Set[Tuple[str, str, str]] = set()
-    if not args.force_recompute and megfile.smart_exists(args.output_csv):
-        cached_rows, existing_keys = load_existing_results(args.output_csv)
-        print(f"Loaded {len(cached_rows)} cached rows from {args.output_csv}")
-
-    models, items = collect_items(args, existing_keys)
-    print(f"Models: {', '.join(models)}")
-    print(f"Queued image pairs: {len(items)}")
+    items = collect_items(reference_dir=args.ref_dir, prediction_dir=args.pred_dir)
 
     worker_config = {
         "vlm_model_path": args.vlm_model_path,
@@ -537,24 +453,27 @@ def main() -> int:
         "vlm_max_new_tokens": str(DEFAULT_VLM_MAX_NEW_TOKENS),
         "lpips_net": args.lpips_net,
     }
-    new_rows = evaluate_items(
+    rows = evaluate_items(
         items=items,
+        task=args.task,
         device_names=device_names,
         worker_config=worker_config,
         num_workers=num_workers,
         max_retries=args.max_retries,
     )
+    if not rows:
+        print("No image pairs were successfully evaluated.", file=sys.stderr)
+        return 1
 
-    all_rows = cached_rows + new_rows if not args.force_recompute else new_rows
-    all_rows = sort_rows(all_rows)
-    smart_write_csv(args.output_csv, all_rows, CSV_FIELDS)
+    if args.output_csv:
+        smart_write_csv(args.output_csv, rows, CSV_FIELDS)
 
-    summary_rows = build_summary_rows(all_rows)
-    smart_write_csv(args.summary_csv, summary_rows, SUMMARY_FIELDS)
-
-    print(f"\nSaved detailed results to: {args.output_csv}")
-    print(f"Saved summary results to: {args.summary_csv}")
-    print_model_averages(summary_rows)
+    summary = build_summary(task=args.task, rows=rows)
+    print(f"Task: {summary['Task']}")
+    print(f"NumImages: {summary['NumImages']}")
+    print(f"LPIPS_Score: {summary['LPIPS_Score']}")
+    print(f"VLM_Score_Diff: {summary['VLM_Score_Diff']}")
+    print(f"FS: {summary['FS']}")
     return 0
 
 

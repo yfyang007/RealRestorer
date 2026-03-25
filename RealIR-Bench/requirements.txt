@@ -1,4 +1,4 @@
 # Extra dependencies for RealIR-Bench on top of the repo root requirements.
-megfile
-lpips
-qwen-vl-utils
+megfile==4.2.4
+lpips==0.1.4
+qwen-vl-utils==0.0.10
