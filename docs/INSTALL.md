@@ -57,6 +57,15 @@ pip install -r requirements.txt
 pip install -e .
 ```
 
+The installed requirements also cover the bundled degradation pipeline, including:
+
+- `torchvision`
+- `opencv-python`
+- `scipy`
+- `scikit-image`
+- `omegaconf`
+- `timm`
+
 ## Verify the Environment
 
 Run:
@@ -146,6 +155,25 @@ image = pipe(
     num_inference_steps=28,
 ).images[0]
 image.save("output.png")
+```
+
+## Using the Bundled Degradation Pipeline
+
+After installation, you can synthesize degraded inputs directly from this repo:
+
+```python
+from degradation_pipeline import DegradationPipeline
+
+pipe = DegradationPipeline(device="cuda:0")
+result = pipe(
+    "/path/to/background.png",
+    "reflection",
+    reflection_ckpt_path="/path/to/130_net_G.pth",
+    reflection_image="/path/to/reflection.png",
+    seed=42,
+)
+
+result.images[0].save("degraded.png")
 ```
 
 ## Summary

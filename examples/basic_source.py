@@ -1,4 +1,12 @@
 import torch
+import sys
+from pathlib import Path
+
+REPO_ROOT = Path(__file__).resolve().parent.parent
+LOCAL_DIFFUSERS_SRC = REPO_ROOT / "diffusers" / "src"
+if LOCAL_DIFFUSERS_SRC.is_dir() and str(LOCAL_DIFFUSERS_SRC) not in sys.path:
+    sys.path.insert(0, str(LOCAL_DIFFUSERS_SRC))
+
 from diffusers import RealRestorerPipeline
 
 

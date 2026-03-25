@@ -1,164 +1,225 @@
-# RealRestorer-diffuser
+<div align="center">
+  <h2>RealRestorer: Towards Generalizable Real-World Image Restoration with Large-Scale Image Editing Models</h2>
+  <p>
+    A practical RealRestorer workspace with standalone model inference, degradation synthesis, and benchmark evaluation.
+  </p>
+  <p>
+    <a href="https://arxiv.org/abs/PAPER_ID"><img src="https://img.shields.io/badge/arXiv-Paper-b31b1b.svg" alt="arXiv"/></a>
+    <a href="https://YOUR_PROJECT_PAGE"><img src="https://img.shields.io/badge/Project-Page-blue.svg" alt="Project Page"/></a>
+    <a href="https://gitlab.basemind.com/i-yangyufeng/RealRestorer"><img src="https://img.shields.io/badge/Code-GitLab-orange.svg" alt="Code Repo"/></a>
+    <a href="https://huggingface.co/YOUR_ORG/RealRestorer"><img src="https://img.shields.io/badge/HuggingFace-Model-yellow.svg" alt="HuggingFace"/></a>
+    <a href="https://huggingface.co/datasets/YOUR_ORG/RealIR-Bench"><img src="https://img.shields.io/badge/RealIR--Bench-Green.svg" alt="RealIR-Bench"/></a>
+    <a href="https://huggingface.co/spaces/YOUR_ORG/RealRestorer-Demo"><img src="https://img.shields.io/badge/HuggingFace-Demo-blue.svg" alt="Demo"/></a>
+  </p>
+</div>
 
-Thin utilities and examples for running `RealRestorerPipeline` through a RealRestorer-enabled `diffusers` repository.
+> [!NOTE]
+> Replace the placeholder public links above with the final arXiv, project page, Hugging Face, benchmark, and demo URLs before release.
 
-## Important
+<p align="center">
+  <img src="assets/teaser.svg" alt="RealRestorer teaser" width="100%"/>
+</p>
 
-This project does **not** work with the upstream PyPI `diffusers` package.
+RealRestorer packages three things in one place:
 
-You must install the **patched `diffusers` repo that already contains `RealRestorerPipeline`** before installing this repository.
+- a `RealRestorerPipeline` workflow built on a patched local `diffusers`
+- a standalone `degradation_pipeline` for synthesizing real-world degradations
+- a lightweight `RealIR-Bench` evaluator for restoration benchmarking
 
-- Correct: install your RealRestorer-enabled `diffusers` repo
-- Wrong: `pip install diffusers`
+## 🔥 Updates
 
-Detailed setup instructions are available in [docs/INSTALL.md](docs/INSTALL.md).
+- [03/2026] Top-level inference entries `infer_realrestorer.py` and `infer_degradation.py` are reorganized and ready for direct use.
+- [03/2026] The standalone degradation pipeline is moved into this repository under `degradation_pipeline/`.
+- [03/2026] The repository layout is cleaned up into `assets`, `degradation_pipeline`, `RealIR-Bench`, `diffusers`, and `RealRestorer`.
 
-## What This Repo Contains
+## ✅ Action Items
 
-The actual pipeline implementation lives in the custom `diffusers` repo.
+- [x] `infer_realrestorer.py` for packaged-model inference
+- [x] `infer_degradation.py` for synthetic degradation generation
+- [x] `RealIR-Bench/evaluate_fs.py` for Step1X-Edit-based restoration benchmark evaluation
+- [ ] Qwen-Image-2511 version
 
-This repository intentionally stays thin and only provides:
+## 🚀 Quick Start
 
-- direct usage examples
-- an export CLI for building a diffusers bundle from original RealRestorer weights
-- a minimal inference CLI for quick local testing
+### 1. Model Links
 
-## Installation
+- RealRestorer model: `https://huggingface.co/YOUR_ORG/RealRestorer`
+- RealIR-Bench download: `https://huggingface.co/datasets/YOUR_ORG/RealIR-Bench`
+- Demo: `https://huggingface.co/spaces/YOUR_ORG/RealRestorer-Demo`
 
-### 1. Install the patched `diffusers` repo
+### 2. Installation
 
-Clone and install the `diffusers` repository that contains `RealRestorerPipeline`:
+This project does **not** use the upstream PyPI `diffusers` package. You must install the patched local `diffusers/` checkout that already contains `RealRestorerPipeline`.
 
 ```bash
-cd RealRestorer-diffuser/diffusers
-pip install -e .
+cd /data/yfyang/project/RealRestorer-diffuser/diffusers
+python -m pip install -e .
+
+cd /data/yfyang/project/RealRestorer-diffuser
+python -m pip install -r requirements.txt
+python -m pip install -e .
 ```
 
-If you already installed the upstream `diffusers`, make sure the patched repo is the one that is actually imported in your environment.
-
-### 2. Install this repo
-
-```bash
-cd RealRestorer-diffuser
-pip install -r requirements.txt
-pip install -e .
-```
-
-### 3. Verify the installation
+You can verify the environment with:
 
 ```bash
 python -c "from diffusers import RealRestorerPipeline; print(RealRestorerPipeline.__name__)"
 ```
 
-If this import fails, your environment is still using the wrong `diffusers`.
+### 3. Recommended Inference Config
 
-The local runtime requirements for this repository are also listed in [requirements.txt](requirements.txt).
+- Device: `cuda`
+- Torch dtype: `bfloat16`
+- Inference steps: `28`
+- Guidance scale: `3.0`
+- Recommended seed: `42`
+- Recommended prompt: `Restore the details and keep the original composition.`
+- Reflection benchmark prompt: `Please remove the reflection from the image.`
 
-## Recommended Config
+### 4. Run RealRestorer Inference
 
-For image restoration and editing, the recommended starting point is:
-
-- `device="cuda"`
-- `torch_dtype=torch.bfloat16`
-- `num_inference_steps=28`
-- `guidance_scale=3.0`
-- `seed=42`
-- use `pipe.enable_model_cpu_offload(device=device)` on CUDA
-
-`seed=42` is the default recommendation used in this repo.
-
-## Quick Start
-
-The main usage path is standard `diffusers` code. Load a packaged repo, enable model CPU offload, and run inference:
-
-```python
-import torch
-from diffusers import RealRestorerPipeline
-
-device = "cuda"
-dtype = torch.bfloat16
-seed = 42
-model_path = "/path/to/packed_realrestorer_repo"
-
-pipe = RealRestorerPipeline.from_pretrained(model_path, torch_dtype=dtype)
-pipe.enable_model_cpu_offload(device=device)
-
-image = pipe(
-    image="/path/to/input.png",
-    prompt="Please remove the reflection from the image.",
-    num_inference_steps=28,
-    guidance_scale=3.0,
-    seed=seed,
-).images[0]
-image.save("output.png")
-```
-
-More examples:
-
-- [examples/basic_pretrained.py](examples/basic_pretrained.py)
-- [examples/basic_source.py](examples/basic_source.py)
-
-## Loading Modes
-
-### 1. Load from a packaged diffusers repo
-
-Use this when you already exported a self-contained model repo:
-
-```python
-import torch
-from diffusers import RealRestorerPipeline
-
-device = "cuda"
-dtype = torch.bfloat16
-
-pipe = RealRestorerPipeline.from_pretrained(
-    "/path/to/packed_realrestorer_repo",
-    torch_dtype=dtype,
-)
-pipe.enable_model_cpu_offload(device=device)
-```
-
-## Degradation Prompts
-
-
-Recommended prompt templates from the benchmark:
-
-- `blur`: `Please deblur the image and make it sharper`
-- `compression`: `Please restore the image clarity and artifacts.`
-- `deflare`: `Please remove the lens flare and glare from the image.`
-- `demoire`: `Please remove the moire patterns from the image`
-- `hazy`: `Please dehaze the image`
-- `lowlight`: `Please restore this low-quality image, recovering its normal brightness and clarity.`
-- `noise`: `Please remove noise from the image.`
-- `rain`: `Please remove the rain from the image and restore its clarity.`
-- `reflection`: `Please remove the reflection from the image.`
-
-## CLI
-
-CLI is optional. It is mainly for quick local testing. The recommended path is still direct Python usage with `RealRestorerPipeline`.
-
-On CUDA, the CLI will automatically enable model CPU offload.
-
-
-### Run inference from a packaged repo
+If you already have an exported or packaged RealRestorer bundle:
 
 ```bash
-realrestorer-diffuser-infer \
-  --model_path /path/to/packed_realrestorer_repo \
+python3 infer_realrestorer.py \
+  --model_path /path/to/realrestorer_bundle \
   --image /path/to/input.png \
-  --prompt "Please remove the reflection from the image." \
+  --prompt "Restore the details and keep the original composition." \
   --output /path/to/output.png \
   --device cuda \
   --torch_dtype bfloat16 \
+  --num_inference_steps 28 \
+  --guidance_scale 3.0 \
   --seed 42
 ```
 
+If you want to assemble a self-contained bundle from source checkpoints first:
 
+```bash
+python3 -m RealRestorer.export_bundle \
+  --load /path/to/realrestorer_checkpoint \
+  --save_dir /path/to/realrestorer_bundle \
+  --model_path /path/to/shared_models \
+  --ae_path /path/to/vae_weights \
+  --qwen2vl_path /path/to/Qwen2.5-VL-7B-Instruct \
+  --device cuda \
+  --torch_dtype bfloat16
+```
 
-## Notes
+Then run `infer_realrestorer.py` on the exported bundle.
 
-- `model_path` is the packaged repo path for direct inference.
-- When used together with `--load`, `model_path` is treated as the shared asset root.
-- For text-to-image, omit `image`.
-- The exported bundle is intended for direct `RealRestorerPipeline.from_pretrained(...)` usage.
-- The core implementation is maintained in the patched `diffusers` repo, not in this repository.
+## 🌫️ Degradation Pipeline
+
+The standalone degradation pipeline is located in `degradation_pipeline/` and supports:
+
+- `blur`
+- `haze`
+- `noise`
+- `rain`
+- `sr`
+- `moire`
+- `reflection`
+
+Reflection synthesis follows the CLI style you requested:
+
+```bash
+python3 infer_degradation.py \
+  --image /path/to/input.png \
+  --degradation reflection \
+  --reflection_ckpt_path /path/to/130_net_G.pth \
+  --reflection_image /path/to/reflection.png \
+  --output /path/to/output.png
+```
+
+The script also writes metadata to a JSON file next to the output image by default. For programmatic use:
+
+```python
+from degradation_pipeline import DegradationPipeline
+
+pipe = DegradationPipeline(device="cuda:0")
+result = pipe(
+    "/path/to/input.png",
+    "reflection",
+    reflection_ckpt_path="/path/to/130_net_G.pth",
+    reflection_image="/path/to/reflection.png",
+    seed=42,
+)
+
+result.images[0].save("degraded.png")
+print(result.metadata[0])
+```
+
+## 📊 RealIR-Bench
+
+`RealIR-Bench/` contains a lightweight evaluator that keeps the benchmark focused on:
+
+- `LPIPS_Score`
+- `VLM_Score_Diff`
+- `FS = 0.2 * VLM_Score_Diff * (1 - LPIPS_Score)`
+
+Benchmark download:
+
+```text
+https://huggingface.co/datasets/YOUR_ORG/RealIR-Bench
+```
+
+Example evaluation command:
+
+```bash
+python3 RealIR-Bench/evaluate_fs.py \
+  --data-root /path/to/RealIR-Bench \
+  --models realrestorer \
+  --vlm-model-path /path/to/Qwen3-VL-8B-Instruct \
+  --num-workers 1
+```
+
+## 🗂️ Project Structure
+
+```text
+RealRestorer-diffuser/
+├── infer_realrestorer.py      # top-level RealRestorer inference entry
+├── infer_degradation.py       # top-level degradation synthesis entry
+├── assets/                    # teaser and README assets
+├── degradation_pipeline/      # standalone degradation synthesis package
+├── RealIR-Bench/              # benchmark evaluation tools
+├── diffusers/                 # patched local diffusers with RealRestorerPipeline
+├── RealRestorer/              # export and inference utilities
+├── docs/                      # installation notes
+├── examples/                  # minimal usage examples
+├── requirements.txt
+└── pyproject.toml
+```
+
+The repository keeps the inference scripts at the outermost level, while the model-side implementation and degradation logic live in dedicated top-level folders for easier maintenance and release packaging.
+
+## 📜 License and Disclaimer
+
+The code of RealRestorer is intended to be released under the Apache License 2.0, while the RealRestorer model and associated benchmark assets are intended for non-commercial academic research use only.
+
+**License Terms:**  
+The RealRestorer model is distributed under a non-commercial research license. All underlying base models, including the patched `diffusers`, Qwen2.5-VL, and other third-party components, remain governed by their original licenses and terms. Users must comply with all applicable upstream licenses when using this project.
+
+**Permitted Use:**  
+This project may be used for lawful academic research, analysis, and non-commercial experimentation only. Any form of commercial use, redistribution for profit, or use that violates applicable laws, regulations, or ethical standards is prohibited.
+
+**User Obligations:**  
+Users are solely responsible for ensuring that their use of the model, benchmark, and any derived outputs complies with relevant laws, institutional review requirements, and third-party license terms.
+
+**Disclaimer of Liability:**  
+The authors, developers, and contributors provide this project on an "as is" basis and make no warranties, express or implied, regarding accuracy, reliability, or fitness for a particular purpose. They are not liable for damages, losses, or legal claims arising from the use or misuse of this project.
+
+**Acceptance of Terms:**  
+By downloading, accessing, or using this project, you acknowledge and agree to the applicable license terms and legal requirements, and you assume full responsibility for all consequences resulting from your use.
+
+## 📑 Citation
+
+If you find this project useful in your research, please consider citing:
+
+```bibtex
+@article{yang2026realrestorer,
+  title={RealRestorer: Towards Generalizable Real-World Image Restoration with Large-Scale Image Editing Models},
+  author={Yufeng Yang and Xianfang Zeng and Zhangqi Jiang and Fukun Yin and Jianzhuang Liu and Wei Cheng and Jinghong Lan and Shiyu Liu and Yuqi Peng and Gang Yu and Shifeng Chen},
+  journal={arXiv preprint},
+  year={2026}
+}
+```

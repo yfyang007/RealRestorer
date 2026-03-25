@@ -10,21 +10,29 @@ readme = "README.md"
 requires-python = ">=3.8"
 dependencies = [
   "torch",
+  "torchvision",
   "transformers",
   "accelerate",
   "safetensors",
   "Pillow",
   "numpy",
+  "opencv-python",
+  "scipy",
+  "scikit-image",
+  "omegaconf",
+  "timm",
   "einops",
   "huggingface_hub",
 ]
 
 [project.scripts]
-realrestorer-diffuser-export = "realrestorer_diffuser.export_bundle:main"
-realrestorer-diffuser-infer = "realrestorer_diffuser.inference:main"
+realrestorer-diffuser-export = "RealRestorer.export_bundle:main"
+realrestorer-diffuser-infer = "RealRestorer.inference:main"
+realrestorer-diffuser-degrade = "degradation_pipeline.infer:main"
 
 [tool.setuptools]
-package-dir = {"" = "src"}
+package-dir = {"" = "."}
 
 [tool.setuptools.packages.find]
-where = ["src"]
+where = ["."]
+include = ["RealRestorer*", "degradation_pipeline*"]

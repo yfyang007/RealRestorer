@@ -1,0 +1,68 @@
+model:
+  base_learning_rate: 1e-5
+  target: unidemoire.models.moire_blending.MoireBlending_Model
+  params:
+    model_name: UniDemoire
+    network_config:
+      init_blending_args:
+        # MIB
+        bl_method_1: multiply       
+        bl_method_1_op: 1.0         
+        bl_method_2: grain_merge    
+        bl_method_2_op: 0.8         
+        bl_final_weight_min: 0.65   
+        bl_final_weight_max: 0.75   
+      
+      blending_network_args:
+        # TRN
+        depths: [1, 1, 1, 1, 1, 1, 1, 1, 1]
+        embed_dim: 16
+        win_size: 8
+        modulator: False
+        shift_flag: False
+
+    loss_config:
+      LAM: 1
+      LAM_P: 1
+
+    optimizer_config:
+      beta1: 0.9
+      beta2: 0.999
+      T_0: 50                   # The total epochs for the first learning cycle (learning rate warms up then)
+      T_mult: 1                 # The learning cycle would be (T_0, T_0*T_MULT, T_0*T_MULT^2, T_0*T_MULT^3, ...)
+      eta_min: 0.000001
+
+data:
+  target: main.DataModuleFromConfig
+  params:
+    batch_size: 2
+    num_workers: 4
+    wrap: True
+    train:
+      target: unidemoire.data.moire_blend.moire_blending_datasets
+      params: 
+        args:
+          natural_dataset_name: UHDM
+          uhdm_dataset_path: /mnt/jfs/MHRNID/mhrnid/uhd-iqa/
+          fhdmi_dataset_path: # Please set the path to your moire pattern dataset
+          tip_dataset_path: # Please set the path to your moire pattern dataset
+          moire_pattern_path: /mnt/jfs/Sampled_Data/sampled_data
+          loader: crop
+          crop_size: 384
+        paired: True
+        mode: train  
+
+lightning:
+  callbacks:
+    image_logger:
+      target: main.ImageLogger
+      params:
+        increase_log_steps: False
+        rescale: False
+        batch_frequency: 500
+        max_images: 8
+
+  trainer:
+    benchmark: True
+    accumulate_grad_batches: 1
+    max_epochs: 50

@@ -1,10 +1,20 @@
 from __future__ import annotations
 
 import argparse
+import sys
 from pathlib import Path
+from typing import TYPE_CHECKING
+
+# Prefer the vendored diffusers checkout when running from this repo.
+_REPO_ROOT = Path(__file__).resolve().parent.parent
+_LOCAL_DIFFUSERS_SRC = _REPO_ROOT / "diffusers" / "src"
+if _LOCAL_DIFFUSERS_SRC.is_dir() and str(_LOCAL_DIFFUSERS_SRC) not in sys.path:
+    sys.path.insert(0, str(_LOCAL_DIFFUSERS_SRC))
 
 import torch
-from diffusers import RealRestorerPipeline
+
+if TYPE_CHECKING:
+    from diffusers import RealRestorerPipeline
 
 DTYPE_MAP = {
     "float32": torch.float32,
@@ -30,6 +40,8 @@ def export_bundle_from_source(
     max_length: int = 640,
     safe_serialization: bool = True,
 ) -> Path:
+    from diffusers import RealRestorerPipeline
+
     save_path = Path(save_dir)
     save_path.mkdir(parents=True, exist_ok=True)
 

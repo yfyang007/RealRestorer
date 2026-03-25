@@ -1,11 +1,21 @@
 from __future__ import annotations
 
 import argparse
+import sys
 from pathlib import Path
+from typing import TYPE_CHECKING, Any
+
+# Prefer the vendored diffusers checkout when running from this repo.
+_REPO_ROOT = Path(__file__).resolve().parent.parent
+_LOCAL_DIFFUSERS_SRC = _REPO_ROOT / "diffusers" / "src"
+if _LOCAL_DIFFUSERS_SRC.is_dir() and str(_LOCAL_DIFFUSERS_SRC) not in sys.path:
+    sys.path.insert(0, str(_LOCAL_DIFFUSERS_SRC))
 
 import torch
-from diffusers import RealRestorerPipeline
 from PIL import Image
+
+if TYPE_CHECKING:
+    from diffusers import RealRestorerPipeline
 
 DTYPE_MAP = {
     "float32": torch.float32,
@@ -78,7 +88,7 @@ def parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
-def configure_pipeline_memory(pipe: RealRestorerPipeline, device: str) -> None:
+def configure_pipeline_memory(pipe: Any, device: str) -> None:
     if str(device).startswith("cuda"):
         pipe.enable_model_cpu_offload(device=device)
     else:
@@ -88,6 +98,7 @@ def configure_pipeline_memory(pipe: RealRestorerPipeline, device: str) -> None:
 def main() -> None:
     args = parse_args()
     torch_dtype = DTYPE_MAP[args.torch_dtype]
+    from diffusers import RealRestorerPipeline
 
     if args.load is None and args.model_path is None:
         raise ValueError(

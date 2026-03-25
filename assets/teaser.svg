@@ -1,0 +1,120 @@
+<svg width="1400" height="760" viewBox="0 0 1400 760" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bg" x1="90" y1="40" x2="1320" y2="720" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#F3F7FF"/>
+      <stop offset="0.48" stop-color="#FFF9ED"/>
+      <stop offset="1" stop-color="#EEF8F1"/>
+    </linearGradient>
+    <linearGradient id="panelA" x1="0" y1="0" x2="1" y2="1">
+      <stop stop-color="#D9E8FF"/>
+      <stop offset="1" stop-color="#F7FBFF"/>
+    </linearGradient>
+    <linearGradient id="panelB" x1="0" y1="0" x2="1" y2="1">
+      <stop stop-color="#FFE7BE"/>
+      <stop offset="1" stop-color="#FFF8EC"/>
+    </linearGradient>
+    <linearGradient id="panelC" x1="0" y1="0" x2="1" y2="1">
+      <stop stop-color="#D7F2DD"/>
+      <stop offset="1" stop-color="#F3FCF5"/>
+    </linearGradient>
+    <filter id="shadow" x="0" y="0" width="1400" height="760" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
+      <feDropShadow dx="0" dy="14" stdDeviation="18" flood-color="#355070" flood-opacity="0.12"/>
+    </filter>
+  </defs>
+
+  <rect x="24" y="24" width="1352" height="712" rx="36" fill="url(#bg)"/>
+  <circle cx="143" cy="126" r="56" fill="#D9E8FF"/>
+  <circle cx="1240" cy="128" r="72" fill="#FFE7BE"/>
+  <circle cx="1283" cy="604" r="54" fill="#D7F2DD"/>
+  <circle cx="179" cy="636" r="40" fill="#FFF1CC"/>
+
+  <text x="88" y="112" fill="#1C274C" font-family="Arial, Helvetica, sans-serif" font-size="42" font-weight="700">
+    RealRestorer
+  </text>
+  <text x="88" y="154" fill="#4C5C7A" font-family="Arial, Helvetica, sans-serif" font-size="24">
+    Generalizable real-world image restoration with a large-scale image editing backbone
+  </text>
+
+  <g filter="url(#shadow)">
+    <rect x="78" y="216" width="370" height="368" rx="28" fill="url(#panelA)"/>
+    <rect x="515" y="216" width="370" height="368" rx="28" fill="url(#panelB)"/>
+    <rect x="952" y="216" width="370" height="368" rx="28" fill="url(#panelC)"/>
+  </g>
+
+  <text x="112" y="276" fill="#1C274C" font-family="Arial, Helvetica, sans-serif" font-size="30" font-weight="700">
+    01. Degradation Pipeline
+  </text>
+  <text x="549" y="276" fill="#553A10" font-family="Arial, Helvetica, sans-serif" font-size="30" font-weight="700">
+    02. RealRestorer Pipeline
+  </text>
+  <text x="986" y="276" fill="#17452A" font-family="Arial, Helvetica, sans-serif" font-size="30" font-weight="700">
+    03. RealIR-Bench
+  </text>
+
+  <text x="112" y="334" fill="#355070" font-family="Arial, Helvetica, sans-serif" font-size="24" font-weight="700">
+    Synthesize real degradations
+  </text>
+  <text x="112" y="372" fill="#4C5C7A" font-family="Arial, Helvetica, sans-serif" font-size="21">
+    - reflection
+  </text>
+  <text x="112" y="406" fill="#4C5C7A" font-family="Arial, Helvetica, sans-serif" font-size="21">
+    - moire
+  </text>
+  <text x="112" y="440" fill="#4C5C7A" font-family="Arial, Helvetica, sans-serif" font-size="21">
+    - blur / haze / noise / rain / sr
+  </text>
+  <text x="112" y="496" fill="#355070" font-family="Arial, Helvetica, sans-serif" font-size="18">
+    Top-level entry:
+  </text>
+  <text x="112" y="528" fill="#1C274C" font-family="Courier New, monospace" font-size="18">
+    python3 infer_degradation.py ...
+  </text>
+
+  <text x="549" y="334" fill="#8E5A00" font-family="Arial, Helvetica, sans-serif" font-size="24" font-weight="700">
+    Restore details and structure
+  </text>
+  <text x="549" y="372" fill="#6B5533" font-family="Arial, Helvetica, sans-serif" font-size="21">
+    - patched diffusers + RealRestorerPipeline
+  </text>
+  <text x="549" y="406" fill="#6B5533" font-family="Arial, Helvetica, sans-serif" font-size="21">
+    - Step1X-Edit backbone
+  </text>
+  <text x="549" y="440" fill="#6B5533" font-family="Arial, Helvetica, sans-serif" font-size="21">
+    - Qwen2.5-VL prompt enhancement
+  </text>
+  <text x="549" y="496" fill="#8E5A00" font-family="Arial, Helvetica, sans-serif" font-size="18">
+    Top-level entry:
+  </text>
+  <text x="549" y="528" fill="#553A10" font-family="Courier New, monospace" font-size="18">
+    python3 infer_realrestorer.py ...
+  </text>
+
+  <text x="986" y="334" fill="#1C6B3D" font-family="Arial, Helvetica, sans-serif" font-size="24" font-weight="700">
+    Evaluate restoration quality
+  </text>
+  <text x="986" y="372" fill="#365544" font-family="Arial, Helvetica, sans-serif" font-size="21">
+    - LPIPS_Score
+  </text>
+  <text x="986" y="406" fill="#365544" font-family="Arial, Helvetica, sans-serif" font-size="21">
+    - VLM_Score_Diff
+  </text>
+  <text x="986" y="440" fill="#365544" font-family="Arial, Helvetica, sans-serif" font-size="21">
+    - FS composite score
+  </text>
+  <text x="986" y="496" fill="#1C6B3D" font-family="Arial, Helvetica, sans-serif" font-size="18">
+    Evaluator:
+  </text>
+  <text x="986" y="528" fill="#17452A" font-family="Courier New, monospace" font-size="18">
+    python3 RealIR-Bench/evaluate_fs.py ...
+  </text>
+
+  <path d="M448 402H495" stroke="#7B8FB2" stroke-width="6" stroke-linecap="round"/>
+  <path d="M488 386L512 402L488 418" stroke="#7B8FB2" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M885 402H932" stroke="#8BAA94" stroke-width="6" stroke-linecap="round"/>
+  <path d="M925 386L949 402L925 418" stroke="#8BAA94" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+
+  <rect x="88" y="628" width="1224" height="64" rx="18" fill="#FFFFFF" fill-opacity="0.75"/>
+  <text x="124" y="668" fill="#2A395A" font-family="Arial, Helvetica, sans-serif" font-size="24" font-weight="700">
+    Outer-level scripts for inference, dedicated top-level folders for assets, degradation, benchmark, diffusers, and RealRestorer.
+  </text>
+</svg>
