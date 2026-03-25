@@ -17,7 +17,7 @@
 > Replace the placeholder public links above with the final arXiv, project page, Hugging Face, benchmark, and demo URLs before release.
 
 <p align="center">
-  <img src="assets/teaser.svg" alt="RealRestorer teaser" width="100%"/>
+  <img src="assets/teaser.png" alt="RealRestorer teaser" width="100%"/>
 </p>
 
 RealRestorer packages three things in one place:
