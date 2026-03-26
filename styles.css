@@ -336,9 +336,9 @@ button {
 
 .ranking-chart {
   display: grid;
-  grid-template-columns: 68px minmax(0, 1fr);
+  grid-template-columns: 72px minmax(0, 1fr);
   gap: 12px;
-  min-height: 420px;
+  min-height: 440px;
 }
 
 .chart-axis,
@@ -355,12 +355,12 @@ button {
 }
 
 .chart-plot {
-  padding: 18px 10px 0;
+  padding: 0 10px;
 }
 
 .plot-grid {
   position: absolute;
-  inset: 0 10px 108px 0;
+  inset: 92px 10px 44px 0;
 }
 
 .grid-line {
@@ -385,11 +385,13 @@ button {
   display: flex;
   flex-direction: column;
   align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
   height: 100%;
 }
 
 .bar-value {
-  margin-bottom: 10px;
+  margin-bottom: 0;
   color: #50607b;
   font-weight: 700;
   font-size: 0.95rem;
@@ -397,7 +399,7 @@ button {
 
 .bar-rail {
   width: min(68px, 100%);
-  height: 300px;
+  height: 272px;
   display: flex;
   align-items: flex-end;
   justify-content: center;
@@ -418,9 +420,8 @@ button {
 }
 
 .bar-logo-wrap {
-  width: 54px;
-  height: 54px;
-  margin-top: 10px;
+  width: 52px;
+  height: 52px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -431,8 +432,8 @@ button {
 
 .bar-logo-wrap.is-highlight {
   position: relative;
-  width: 60px;
-  height: 60px;
+  width: 58px;
+  height: 58px;
   overflow: hidden;
   border: 1px solid rgba(45, 125, 247, 0.18);
 }
@@ -464,7 +465,7 @@ button {
 }
 
 .bar-name {
-  margin-top: 10px;
+  min-height: 2.4em;
   text-align: center;
   font-size: 0.78rem;
   line-height: 1.35;
@@ -588,6 +589,21 @@ button {
 .showcase-stage {
   position: relative;
   padding-inline: clamp(28px, 5.5vw, 96px);
+}
+
+.showcase-viewport {
+  overflow: hidden;
+}
+
+.showcase-transition-track {
+  width: 200%;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  will-change: transform;
+}
+
+.showcase-transition-track > .showcase-row {
+  min-width: 0;
 }
 
 .showcase-side-btn {
@@ -744,12 +760,17 @@ button {
     0 0 0 1px color-mix(in srgb, var(--showcase-accent) 10%, transparent);
 }
 
-.showcase-carousel.is-from-next .showcase-row {
-  animation: showcase-slide-from-right 320ms cubic-bezier(0.22, 1, 0.36, 1);
+.showcase-carousel.is-transitioning .showcase-row {
+  pointer-events: none;
 }
 
-.showcase-carousel.is-from-prev .showcase-row {
-  animation: showcase-slide-from-left 320ms cubic-bezier(0.22, 1, 0.36, 1);
+.showcase-carousel.is-transitioning.is-from-next .showcase-transition-track {
+  animation: showcase-track-next 520ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+.showcase-carousel.is-transitioning.is-from-prev .showcase-transition-track {
+  transform: translateX(-50%);
+  animation: showcase-track-prev 520ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
 }
 
 .showcase-title {
@@ -909,26 +930,22 @@ button {
   color: var(--muted);
 }
 
-@keyframes showcase-slide-from-right {
+@keyframes showcase-track-next {
   from {
-    opacity: 0;
-    transform: translate3d(28px, 0, 0);
+    transform: translate3d(0, 0, 0);
   }
 
   to {
-    opacity: 1;
-    transform: translate3d(0, 0, 0);
+    transform: translate3d(-50%, 0, 0);
   }
 }
 
-@keyframes showcase-slide-from-left {
+@keyframes showcase-track-prev {
   from {
-    opacity: 0;
-    transform: translate3d(-28px, 0, 0);
+    transform: translate3d(-50%, 0, 0);
   }
 
   to {
-    opacity: 1;
     transform: translate3d(0, 0, 0);
   }
 }

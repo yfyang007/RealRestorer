@@ -2,14 +2,159 @@
   const rankingData = Array.isArray(window.rankingData) ? [...window.rankingData] : [];
   const showcaseData = Array.isArray(window.showcaseData) ? [...window.showcaseData] : [];
   const metricLabel = window.rankingMetricLabel || "Final Score";
+  const TASK_ROTATION_MS = 1500;
+  const TASK_TRANSITION_MS = 520;
+  const prefersReducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
 
   const sampleState = Object.fromEntries(showcaseData.map((task) => [task.id, 0]));
   const compareState = Object.fromEntries(showcaseData.map((task) => [task.id, 50]));
   let activeTaskIndex = 0;
   let lastTaskNavDirection = "next";
   let hasRenderedResults = false;
+  let taskRotationTimer = null;
+  let taskTransitionTimer = null;
+  let autoTaskStep = 1;
 
   const q = (selector) => document.querySelector(selector);
+
+  function getActiveTask() {
+    return showcaseData[activeTaskIndex] || null;
+  }
+
+  function getActiveSampleIndex(task) {
+    if (!task) {
+      return 0;
+    }
+
+    return Math.min(sampleState[task.id] || 0, task.samples.length - 1);
+  }
+
+  function isTaskRotationEnabled() {
+    return showcaseData.length > 1 && hasRenderedResults && !document.hidden && !prefersReducedMotion.matches;
+  }
+
+  function clearTaskRotationTimer() {
+    window.clearTimeout(taskRotationTimer);
+    taskRotationTimer = null;
+  }
+
+  function clearTaskTransitionTimer() {
+    window.clearTimeout(taskTransitionTimer);
+    taskTransitionTimer = null;
+  }
+
+  function normalizeAutoTaskStep() {
+    if (showcaseData.length <= 1) {
+      autoTaskStep = 1;
+      return;
+    }
+
+    if (activeTaskIndex <= 0) {
+      autoTaskStep = 1;
+      return;
+    }
+
+    if (activeTaskIndex >= showcaseData.length - 1) {
+      autoTaskStep = -1;
+    }
+  }
+
+  function getNextAutoTaskIndex() {
+    if (showcaseData.length <= 1) {
+      return activeTaskIndex;
+    }
+
+    normalizeAutoTaskStep();
+
+    let nextIndex = activeTaskIndex + autoTaskStep;
+
+    if (nextIndex >= showcaseData.length) {
+      autoTaskStep = -1;
+      nextIndex = activeTaskIndex - 1;
+    } else if (nextIndex < 0) {
+      autoTaskStep = 1;
+      nextIndex = activeTaskIndex + 1;
+    }
+
+    return getWrappedTaskIndex(nextIndex);
+  }
+
+  function advanceTaskRotation() {
+    if (!isTaskRotationEnabled()) {
+      return;
+    }
+
+    const previousTaskIndex = activeTaskIndex;
+    const nextIndex = getNextAutoTaskIndex();
+    lastTaskNavDirection = autoTaskStep === -1 ? "prev" : "next";
+    activeTaskIndex = nextIndex;
+    renderResults({ animateTaskChange: true, previousTaskIndex });
+  }
+
+  function scheduleTaskRotation() {
+    clearTaskRotationTimer();
+
+    if (!isTaskRotationEnabled()) {
+      return;
+    }
+
+    taskRotationTimer = window.setTimeout(() => {
+      advanceTaskRotation();
+    }, TASK_ROTATION_MS);
+  }
+
+  function initHeroVideo() {
+    const heroVideo = q(".hero-video-player");
+    if (!heroVideo) {
+      return;
+    }
+
+    const enablePreferredAudio = async () => {
+      heroVideo.muted = false;
+      heroVideo.volume = 0.5;
+
+      try {
+        await heroVideo.play();
+      } catch (error) {
+        // Keep the player usable even if the browser still blocks audio.
+      }
+    };
+
+    const unlockAudio = () => {
+      window.removeEventListener("pointerdown", unlockAudio);
+      window.removeEventListener("keydown", unlockAudio);
+      void enablePreferredAudio();
+    };
+
+    const tryAutoplay = async () => {
+      heroVideo.muted = false;
+      heroVideo.volume = 0.5;
+
+      try {
+        await heroVideo.play();
+      } catch (error) {
+        heroVideo.muted = true;
+
+        try {
+          await heroVideo.play();
+        } catch (mutedError) {
+          return;
+        }
+
+        window.addEventListener("pointerdown", unlockAudio, { once: true, passive: true });
+        window.addEventListener("keydown", unlockAudio, { once: true });
+      }
+    };
+
+    if (heroVideo.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA) {
+      void tryAutoplay();
+      return;
+    }
+
+    heroVideo.addEventListener("canplay", () => {
+      void tryAutoplay();
+    }, { once: true });
+  }
 
   function getOptimizedAssetPath(assetPath, variant = "full") {
     const suffixByVariant = {
@@ -83,8 +228,9 @@
     const chartMax = Math.ceil(maxScore * 1000 / 20) * 20 / 1000;
     const tickCount = 5;
     const ticks = Array.from({ length: tickCount }, (_, index) => {
-      const value = chartMax - (chartMax / (tickCount - 1)) * index;
-      const bottom = (index / (tickCount - 1)) * 100;
+      const ratio = index / (tickCount - 1);
+      const value = chartMax * ratio;
+      const bottom = ratio * 100;
       return {
         label: value.toFixed(3),
         bottom
@@ -123,9 +269,6 @@
                 return `
                   <article class="${cardClass}" style="--accent:${entry.accent}">
                     <span class="bar-value">${formatScore(entry.score)}</span>
-                    <div class="bar-rail">
-                      <div class="bar-fill" data-height="${height}%"></div>
-                    </div>
                     <div class="${logoWrapClass}">
                       ${renderImage({
                         className: logoClass,
@@ -135,6 +278,9 @@
                         fetchPriority: "low",
                         variant: "logo"
                       })}
+                    </div>
+                    <div class="bar-rail">
+                      <div class="bar-fill" data-height="${height}%"></div>
                     </div>
                     <span class="bar-name">${entry.model}</span>
                   </article>
@@ -156,24 +302,90 @@
     });
   }
 
-  function renderResults({ animateTaskChange = false } = {}) {
+  function buildShowcaseRow(task, activeSampleIndex, compareSplit) {
+    const activeSample = task.samples[activeSampleIndex];
+
+    return `
+      <section class="showcase-row">
+        <h3 class="showcase-title">${task.title}</h3>
+
+        <div class="compare-shell" data-compare-shell data-task-id="${task.id}" style="--split:${compareSplit}%">
+          ${renderImage({
+            className: "compare-image compare-before",
+            src: activeSample.input,
+            alt: `${task.title} input for ${activeSample.label}`,
+            loading: "eager",
+            fetchPriority: "high"
+          })}
+          ${renderImage({
+            className: "compare-image compare-after",
+            src: activeSample.output,
+            alt: `${task.title} output for ${activeSample.label}`,
+            loading: "eager",
+            fetchPriority: "high"
+          })}
+          <div class="compare-label before-label">Input</div>
+          <div class="compare-label after-label">RealRestorer</div>
+          <div class="compare-divider"></div>
+          <input class="compare-range" type="range" min="0" max="100" value="${compareSplit}" aria-label="Adjust before and after comparison">
+        </div>
+
+        <div class="reel-track" aria-label="${task.title} samples">
+          ${task.samples
+            .map((sample, sampleIndex) => {
+              const activeClass = sampleIndex === activeSampleIndex ? "reel-card is-active" : "reel-card";
+              return `
+                <button class="${activeClass}" type="button" data-sample-switch="${task.id}:${sampleIndex}" aria-pressed="${sampleIndex === activeSampleIndex}">
+                  ${renderImage({
+                    src: sample.output,
+                    alt: `${task.title} ${sample.label}`,
+                    loading: "lazy",
+                    fetchPriority: "low",
+                    variant: "thumb"
+                  })}
+                </button>
+              `;
+            })
+            .join("")}
+        </div>
+      </section>
+    `;
+  }
+
+  function renderResults({ animateTaskChange = false, previousTaskIndex = null } = {}) {
     const resultsRoot = q("[data-results-root]");
     if (!resultsRoot || showcaseData.length === 0) {
       return;
     }
 
+    clearTaskTransitionTimer();
     hasRenderedResults = true;
 
     const task = showcaseData[activeTaskIndex];
-    const activeSampleIndex = Math.min(sampleState[task.id] || 0, task.samples.length - 1);
-    const activeSample = task.samples[activeSampleIndex];
+    const activeSampleIndex = getActiveSampleIndex(task);
     const compareSplit = compareState[task.id] ?? 50;
-    const transitionClass = animateTaskChange
-      ? ` showcase-carousel is-animating is-from-${lastTaskNavDirection}`
-      : " showcase-carousel";
+    let transitionClass = "showcase-carousel";
+    let showcaseBody = buildShowcaseRow(task, activeSampleIndex, compareSplit);
+
+    if (animateTaskChange && typeof previousTaskIndex === "number" && previousTaskIndex !== activeTaskIndex) {
+      const previousTask = showcaseData[getWrappedTaskIndex(previousTaskIndex)];
+      const previousSampleIndex = getActiveSampleIndex(previousTask);
+      const previousCompareSplit = compareState[previousTask.id] ?? 50;
+      const previousRow = buildShowcaseRow(previousTask, previousSampleIndex, previousCompareSplit);
+      const currentRow = buildShowcaseRow(task, activeSampleIndex, compareSplit);
+
+      transitionClass = `showcase-carousel is-transitioning is-from-${lastTaskNavDirection}`;
+      showcaseBody = `
+        <div class="showcase-viewport">
+          <div class="showcase-transition-track">
+            ${lastTaskNavDirection === "prev" ? `${currentRow}${previousRow}` : `${previousRow}${currentRow}`}
+          </div>
+        </div>
+      `;
+    }
 
     resultsRoot.innerHTML = `
-      <div class="${transitionClass.trim()}" style="--showcase-accent:${task.accent}">
+      <div class="${transitionClass}" style="--showcase-accent:${task.accent}">
         <div class="showcase-nav-meta">
           <span class="showcase-nav-count">${formatTaskPosition(activeTaskIndex + 1)} / ${formatTaskPosition(showcaseData.length)}</span>
           <span class="showcase-nav-name">${task.title}</span>
@@ -184,49 +396,7 @@
             <span class="nav-btn-icon" aria-hidden="true">←</span>
           </button>
 
-          <section class="showcase-row">
-            <h3 class="showcase-title">${task.title}</h3>
-
-            <div class="compare-shell" data-compare-shell data-task-id="${task.id}" style="--split:${compareSplit}%">
-              ${renderImage({
-                className: "compare-image compare-before",
-                src: activeSample.input,
-                alt: `${task.title} input for ${activeSample.label}`,
-                loading: "eager",
-                fetchPriority: "high"
-              })}
-              ${renderImage({
-                className: "compare-image compare-after",
-                src: activeSample.output,
-                alt: `${task.title} output for ${activeSample.label}`,
-                loading: "eager",
-                fetchPriority: "high"
-              })}
-              <div class="compare-label before-label">Input</div>
-              <div class="compare-label after-label">RealRestorer</div>
-              <div class="compare-divider"></div>
-              <input class="compare-range" type="range" min="0" max="100" value="${compareSplit}" aria-label="Adjust before and after comparison">
-            </div>
-
-            <div class="reel-track" aria-label="${task.title} samples">
-              ${task.samples
-                .map((sample, sampleIndex) => {
-                  const activeClass = sampleIndex === activeSampleIndex ? "reel-card is-active" : "reel-card";
-                  return `
-                    <button class="${activeClass}" type="button" data-sample-switch="${task.id}:${sampleIndex}" aria-pressed="${sampleIndex === activeSampleIndex}">
-                      ${renderImage({
-                        src: sample.output,
-                        alt: `${task.title} ${sample.label}`,
-                        loading: "lazy",
-                        fetchPriority: "low",
-                        variant: "thumb"
-                      })}
-                    </button>
-                  `;
-                })
-                .join("")}
-            </div>
-          </section>
+          ${showcaseBody}
 
           <button class="showcase-side-btn showcase-side-btn-next" type="button" data-task-nav="next" aria-label="Show next case group">
             <span class="nav-btn-icon" aria-hidden="true">→</span>
@@ -236,6 +406,15 @@
     `;
 
     bindTaskNav();
+    scheduleTaskRotation();
+
+    if (transitionClass.includes("is-transitioning")) {
+      taskTransitionTimer = window.setTimeout(() => {
+        renderResults({ animateTaskChange: false });
+      }, TASK_TRANSITION_MS);
+      return;
+    }
+
     bindSampleSwitch();
     bindCompareAll();
   }
@@ -286,10 +465,12 @@
   function bindTaskNav() {
     document.querySelectorAll("[data-task-nav]").forEach((button) => {
       button.addEventListener("click", () => {
+        const previousTaskIndex = activeTaskIndex;
         const direction = button.dataset.taskNav === "prev" ? "prev" : "next";
+        autoTaskStep = direction === "prev" ? -1 : 1;
         lastTaskNavDirection = direction;
         activeTaskIndex = getWrappedTaskIndex(activeTaskIndex + (direction === "prev" ? -1 : 1));
-        renderResults({ animateTaskChange: true });
+        renderResults({ animateTaskChange: true, previousTaskIndex });
       });
     });
   }
@@ -329,9 +510,11 @@
 
       compareRange.addEventListener("input", (event) => {
         sync(event.target.value);
+        scheduleTaskRotation();
       });
 
       compareShell.addEventListener("pointerdown", (event) => {
+        clearTaskRotationTimer();
         updateFromPointer(event.clientX);
 
         const handleMove = (moveEvent) => {
@@ -340,6 +523,7 @@
 
         const stopMove = () => {
           window.removeEventListener("pointermove", handleMove);
+          scheduleTaskRotation();
         };
 
         window.addEventListener("pointermove", handleMove);
@@ -349,9 +533,30 @@
   }
 
   function init() {
+    initHeroVideo();
     renderRanking(getSortedRanking());
     renderResultsPlaceholder();
     initDeferredResults();
+
+    document.addEventListener("visibilitychange", () => {
+      if (document.hidden) {
+        clearTaskRotationTimer();
+        return;
+      }
+
+      scheduleTaskRotation();
+    });
+
+    if (typeof prefersReducedMotion.addEventListener === "function") {
+      prefersReducedMotion.addEventListener("change", () => {
+        if (prefersReducedMotion.matches) {
+          clearTaskRotationTimer();
+          return;
+        }
+
+        scheduleTaskRotation();
+      });
+    }
   }
 
   window.addEventListener("DOMContentLoaded", init);
