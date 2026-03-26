@@ -13,7 +13,7 @@
 
 ## News
 
-- [03/2026] We have released the EndoCoT repository and ckpts.
+- [03/2026] We have released the RealRestorer repository, checkpoints, and RealIR-Bench.
 
 ## TODO
 
@@ -34,9 +34,13 @@ FS = 0.2 * VLM_Score_Diff * (1 - LPIPS)
 
 ### 1. Links
 
-- Project page: `https://yfyang007.github.io/RealRestorer/`
-- RealRestorer model: `https://huggingface.co/RealRestorer/RealRestorer`
-- RealIR-Bench: `https://huggingface.co/datasets/RealRestorer/RealIR-Bench`
+| Resource | Address |
+| --- | --- |
+| Project Page | `https://yfyang007.github.io/RealRestorer/` |
+| GitHub Repository | `https://github.com/yfyang007/RealRestorer` |
+| RealRestorer Model | `https://huggingface.co/RealRestorer/RealRestorer` |
+| Degradation Models | `https://huggingface.co/RealRestorer/RealRestorer_degradation_models` |
+| RealIR-Bench | `https://huggingface.co/datasets/RealRestorer/RealIR-Bench` |
 
 ### 2. Installation
 
@@ -104,6 +108,30 @@ python3 infer_realrestorer.py \
 `degradation_pipeline/` is the synthetic degradation pipeline used by RealRestorer. It is released together with this repository and can be used to synthesize real-world degradations for training, analysis, and controlled evaluation.
 
 The current pipeline covers common restoration settings including blur, haze, noise, rain, moire, and reflection.
+
+Generation script:
+
+```bash
+python3 infer_degradation.py \
+  --image /path/to/input.png \
+  --degradation reflection \
+  --output /path/to/degraded.png \
+  --reflection_ckpt_path /path/to/130_net_G.pth
+```
+
+The script writes the degraded image and a JSON metadata file for the sampled degradation settings.
+
+Evaluation script:
+
+```bash
+python3 evaluate_realir_bench.py \
+  --ref-dir /path/to/reference_dir \
+  --pred-dir /path/to/prediction_dir \
+  --task reflection \
+  --vlm-model-path /path/to/Qwen3-VL-8B-Instruct
+```
+
+For degradation-specific evaluation, set `--task` to the corresponding restoration target such as `blur`, `noise`, `rain`, `moire`, or `reflection`.
 
 ## Benchmark Evaluation
 
