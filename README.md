@@ -141,22 +141,3 @@ python3 evaluate_realir_bench.py \
 
 For degradation-specific evaluation, set `--task` to the corresponding restoration target such as `blur`, `noise`, `rain`, `moire`, or `reflection`.
 
-
-## License and Disclaimer
-
-The code of RealRestorer is intended to be released under the Apache License 2.0, while the RealRestorer model and associated benchmark assets are intended for non-commercial academic research use only.
-
-**License Terms:**  
-The RealRestorer model is distributed under a non-commercial research license. All underlying base models, including the patched `diffusers`, Qwen2.5-VL, and other third-party components, remain governed by their original licenses and terms. Users must comply with all applicable upstream licenses when using this project.
-
-**Permitted Use:**  
-This project may be used for lawful academic research, analysis, and non-commercial experimentation only. Any form of commercial use, redistribution for profit, or use that violates applicable laws, regulations, or ethical standards is prohibited.
-
-**User Obligations:**  
-Users are solely responsible for ensuring that their use of the model, benchmark, and any derived outputs complies with relevant laws, institutional review requirements, and third-party license terms.
-
-**Disclaimer of Liability:**  
-The authors, developers, and contributors provide this project on an "as is" basis and make no warranties, express or implied, regarding accuracy, reliability, or fitness for a particular purpose. They are not liable for damages, losses, or legal claims arising from the use or misuse of this project.
-
-**Acceptance of Terms:**  
-By downloading, accessing, or using this project, you acknowledge and agree to the applicable license terms and legal requirements, and you assume full responsibility for all consequences resulting from your use.
