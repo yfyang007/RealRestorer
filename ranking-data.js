@@ -50,14 +50,6 @@ window.rankingData = [
     logo: "./asset/model-logos/flux_logo.png"
   },
   {
-    model: "Step1X-Edit",
-    provider: "StepFun",
-    openSource: true,
-    score: 0.036,
-    accent: "#ff6a00",
-    logo: "./asset/model-logos/stepfun-color.png"
-  },
-  {
     model: "RealRestorer (ours)",
     provider: "RealRestorer",
     openSource: true,

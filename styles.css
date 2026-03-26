@@ -375,7 +375,7 @@ button {
   z-index: 1;
   height: 100%;
   display: grid;
-  grid-template-columns: repeat(8, minmax(0, 1fr));
+  grid-template-columns: repeat(var(--bar-count, 8), minmax(0, 1fr));
   gap: 12px;
   align-items: end;
 }

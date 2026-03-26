@@ -2,7 +2,7 @@
   const rankingData = Array.isArray(window.rankingData) ? [...window.rankingData] : [];
   const showcaseData = Array.isArray(window.showcaseData) ? [...window.showcaseData] : [];
   const metricLabel = window.rankingMetricLabel || "Final Score";
-  const TASK_ROTATION_MS = 1500;
+  const TASK_ROTATION_MS = 2000;
   const TASK_TRANSITION_MS = 520;
   const prefersReducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
 
@@ -258,7 +258,7 @@
               )
               .join("")}
           </div>
-          <div class="bar-list">
+          <div class="bar-list" style="--bar-count:${sortedRanking.length}">
             ${sortedRanking
               .map((entry) => {
                 const height = ((entry.score / chartMax) * 100).toFixed(2);
