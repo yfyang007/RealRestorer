@@ -19,7 +19,7 @@
 
 - [x] Open-source the inference code, degradation pipeline code, and RealIR-Bench evaluation code.
 - [x] Release RealIR-Bench on Hugging Face.
-- [ ] Open-source the RealRestorer model weights.
+- [x] Open-source the RealRestorer model weights.
 - [ ] Open-source the Qwen-Image-Edit-2511 version.
 
 ## Benchmark
@@ -121,6 +121,14 @@ python3 infer_degradation.py \
 
 The script writes the degraded image and a JSON metadata file for the sampled degradation settings.
 
+## Benchmark Evaluation
+
+RealIR-Bench uses a VLM-based scoring protocol to compare restored images against references and reports `LPIPS_Score`, `VLM_Score_Diff`, and `FS`, where:
+
+```text
+FS = 0.2 * VLM_Score_Diff * (1 - LPIPS)
+```
+
 Evaluation script:
 
 ```bash
@@ -133,23 +141,6 @@ python3 evaluate_realir_bench.py \
 
 For degradation-specific evaluation, set `--task` to the corresponding restoration target such as `blur`, `noise`, `rain`, `moire`, or `reflection`.
 
-## Benchmark Evaluation
-
-RealIR-Bench uses a VLM-based scoring protocol to compare restored images against references and reports `LPIPS_Score`, `VLM_Score_Diff`, and `FS`, where:
-
-```text
-FS = 0.2 * VLM_Score_Diff * (1 - LPIPS)
-```
-
-Example evaluation command:
-
-```bash
-python3 evaluate_realir_bench.py \
-  --ref-dir /path/to/reference_dir \
-  --pred-dir /path/to/prediction_dir \
-  --task reflection \
-  --vlm-model-path /path/to/Qwen3-VL-8B-Instruct
-```
 
 ## License and Disclaimer
 
