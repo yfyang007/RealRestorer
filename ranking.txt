@@ -1,0 +1,8 @@
+Nano Banana Pro	No	0.413	1.306	0.153
+GPT-Image-1.5	No	0.525	1.578	0.150
+Seedream 4.5	No	0.390	1.029	0.125
+LongCat-Image-Edit	Yes	0.270	0.661	0.097
+Qwen-Image-Edit-2511	Yes	0.320	0.931	0.127
+FLUX.1-Kontext-dev	Yes	0.202	0.349	0.056
+Step1X-Edit	Yes	0.325	0.270	0.036
+RealRestorer (ours)	Yes	0.445	1.312	0.146

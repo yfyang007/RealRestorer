@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PixelSmile AI | RealIR-Bench Image Restoration</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        :root {
+            --c-blue: #2962ff;
+            --c-purple: #d500f9;
+            --grad: linear-gradient(135deg, #00d2ff, #2962ff, #d500f9);
+            --bg: #f8fafc;
+            --text-dark: #1e293b;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { background: var(--bg); color: var(--text-dark); font-family: 'Inter', -apple-system, sans-serif; line-height: 1.6; }
+
+        /* --- 1. Title & Links --- */
+        header { padding: 100px 20px 40px; text-align: center; }
+        .logo-main { width: 90px; margin-bottom: 25px; animation: float 4s infinite ease-in-out; }
+        h1 { font-size: 3.5rem; font-weight: 800; letter-spacing: -2px; margin-bottom: 10px; background: var(--grad); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+        .subtitle { font-size: 1.2rem; color: #64748b; margin-bottom: 40px; }
+
+        .link-buttons { display: flex; justify-content: center; gap: 15px; flex-wrap: wrap; margin-bottom: 50px; }
+        .btn-pill {
+            background: #334155; color: white; text-decoration: none;
+            padding: 12px 26px; border-radius: 50px; font-weight: 600; font-size: 0.9rem;
+            display: flex; align-items: center; gap: 8px; transition: 0.3s;
+        }
+        .btn-pill:hover { background: #000; transform: translateY(-3px); box-shadow: 0 10px 20px rgba(0,0,0,0.1); }
+
+        /* --- 2. Video Demo Section --- */
+        .video-section { max-width: 1100px; margin: 0 auto 120px; padding: 0 20px; text-align: center; }
+        .video-title { font-size: 1.8rem; font-weight: 700; margin-bottom: 30px; color: #1e293b; }
+        .video-container {
+            width: 100%; aspect-ratio: 16/9; background: #000; border-radius: 30px;
+            overflow: hidden; box-shadow: 0 40px 80px rgba(0,0,0,0.15); border: 8px solid #fff;
+        }
+        .video-container video { width: 100%; height: 100%; object-fit: cover; }
+
+        /* --- 3. RealIR-Bench Table --- */
+        .bench-section { max-width: 900px; margin: 0 auto 120px; padding: 0 20px; }
+        .bench-title { text-align: center; font-size: 2.2rem; font-weight: 800; margin-bottom: 40px; }
+        .bench-card { background: white; border-radius: 24px; padding: 40px; box-shadow: 0 4px 25px rgba(0,0,0,0.03); border: 1px solid #f1f5f9; }
+        
+        .bench-table { width: 100%; border-collapse: collapse; text-align: left; }
+        .bench-table th { padding: 20px; color: #64748b; font-size: 0.9rem; border-bottom: 2px solid #f1f5f9; text-transform: uppercase; letter-spacing: 1px; }
+        .bench-table td { padding: 20px; border-bottom: 1px solid #f8fafc; font-weight: 500; }
+        .row-ours { background: linear-gradient(to right, #f0f7ff, #fff); color: var(--c-blue); }
+        .row-ours td:first-child { border-radius: 12px 0 0 12px; font-weight: 800; }
+        .row-ours td:last-child { border-radius: 0 12px 12px 0; }
+        .badge-ours { background: var(--c-blue); color: white; padding: 4px 12px; border-radius: 20px; font-size: 0.75rem; margin-left: 10px; }
+
+        /* --- 4. Showcase Rows (01-10) --- */
+        .showcase-container { padding-bottom: 100px; }
+        .showcase-row { max-width: 1300px; margin: 0 auto 150px; padding: 0 40px; }
+        .row-info { margin-bottom: 35px; }
+        .row-num { font-size: 3rem; font-weight: 900; opacity: 0.1; line-height: 1; }
+        .row-name { font-size: 2rem; font-weight: 800; margin-top: -20px; }
+
+        /* 对比器 */
+        .viewer {
+            width: 100%; aspect-ratio: 16/8; border-radius: 32px; overflow: hidden;
+            position: relative; background: #e2e8f0; cursor: ew-resize; box-shadow: 0 30px 60px rgba(0,0,0,0.1);
+        }
+        .v-img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+        .v-after { clip-path: inset(0 0 0 50%); z-index: 2; }
+        .v-handle { position: absolute; top: 0; bottom: 0; left: 50%; width: 2px; background: #fff; z-index: 10; box-shadow: 0 0 15px rgba(0,0,0,0.3); }
+        .v-handle::after { content: '↔'; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 44px; height: 44px; background: #fff; border-radius: 50%; display: flex; justify-content: center; align-items: center; font-weight: 800; box-shadow: 0 5px 15px rgba(0,0,0,0.2); }
+
+        /* 悬浮传送带 */
+        .reel { width: 100%; overflow: hidden; padding: 40px 0; position: relative; }
+        .reel-track { display: flex; gap: 25px; width: max-content; animation: marquee 35s linear infinite; }
+        .reel-track:hover { animation-play-state: paused; }
+        .thumb {
+            width: 240px; height: 140px; border-radius: 20px; overflow: hidden;
+            flex-shrink: 0; cursor: pointer; border: 4px solid transparent; transition: 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            animation: floatThumb 4s infinite ease-in-out; box-shadow: 0 10px 25px rgba(0,0,0,0.05);
+        }
+        .thumb img { width: 100%; height: 100%; object-fit: cover; }
+        .thumb:hover { transform: scale(1.1) translateY(-10px); border-color: var(--c-blue); z-index: 5; }
+        .thumb.active { border-color: var(--c-blue); box-shadow: 0 0 20px rgba(41, 98, 255, 0.3); }
+
+        /* 动画 */
+        @keyframes marquee { 0% { transform: translateX(0); } 100% { transform: translateX(calc(-265px * 5)); } }
+        @keyframes float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-15px); } }
+        @keyframes floatThumb { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-8px); } }
+        .thumb:nth-child(even) { animation-delay: -1s; }
+
+    </style>
+</head>
+<body>
+
+    <!-- 1. Header & Links -->
+    <header>
+        <svg class="logo-main" viewBox="0 0 100 100">
+            <defs><linearGradient id="g" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#00d2ff"/><stop offset="100%" stop-color="#d500f9"/></linearGradient></defs>
+            <path d="M50 10 C 20 10, 10 40, 10 50 C 10 80, 40 90, 50 90 C 80 90, 90 60, 90 50 C 90 20, 60 10, 50 10 Z" fill="url(#g)"/>
+            <path d="M40 50 L 60 50 M 50 40 L 50 60" stroke="white" stroke-width="6" stroke-linecap="round"/>
+        </svg>
+        <h1>PixelSmile AI</h1>
+        <p class="subtitle">Next-Generation Unified Image Restoration & Expression Editing</p>
+
+        <div class="link-buttons">
+            <a href="#" class="btn-pill"><i class="far fa-file-pdf"></i> Paper</a>
+            <a href="https://github.com" class="btn-pill"><i class="fab fa-github"></i> Code</a>
+            <a href="#" class="btn-pill">🤗 KRIS-Bench</a>
+            <a href="#" class="btn-pill">🤗 Results Gallery</a>
+        </div>
+    </header>
+
+    <!-- 2. Video Demo Section -->
+    <section class="video-section">
+        <h2 class="video-title">Interactive Model Demo Video</h2>
+        <div class="video-container">
+            <!-- 替换为你的真实MP4视频地址 -->
+            <video autoplay muted loop playsinline>
+                <source src="your-demo-video.mp4" type="video/mp4">
+            </video>
+        </div>
+    </section>
+
+    <!-- 3. RealIR-Bench Table Section -->
+    <section class="bench-section">
+        <h2 class="bench-title">RealIR-Bench Performance</h2>
+        <div class="bench-card">
+            <table class="bench-table">
+                <thead>
+                    <tr>
+                        <th>Model Name</th>
+                        <th>Metric (Avg. Score)</th>
+                        <th>Rank</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr><td>Seedream</td><td>24.32</td><td>#4</td></tr>
+                    <tr><td>GPT-Image-Restorer</td><td>26.55</td><td>#3</td></tr>
+                    <tr><td>Nano Banana Pro</td><td>28.12</td><td>#2</td></tr>
+                    <tr class="row-ours">
+                        <td>PixelSmile (Ours) <span class="badge-ours">SOTA</span></td>
+                        <td>32.45</td>
+                        <td>#1</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </section>
+
+    <!-- 4. Showcase Rows (01-10) -->
+    <section class="showcase-container" id="showcase-target">
+        <!-- JS将自动填满10个任务 -->
+    </section>
+
+    <script>
+        // 任务名称定义
+        const taskNames = [
+            "Expression Editing", "Low-light Enhancement", "Face Restoration", 
+            "De-blurring", "Super Resolution", "Old Photo Colorization", 
+            "Object Removal", "Denoising", "HDR Reconstruction", "Atmospheric Correction"
+        ];
+
+        // 初始化十个任务的HTML结构
+        const showcaseTarget = document.getElementById('showcase-target');
+        
+        taskNames.forEach((name, i) => {
+            const rowIdx = (i + 1).toString().padStart(2, '0');
+            const rowHTML = `
+                <div class="showcase-row">
+                    <div class="row-info">
+                        <div class="row-num">${rowIdx}</div>
+                        <div class="row-name">${name}</div>
+                    </div>
+                    <!-- 主查看器 -->
+                    <div class="viewer" id="v${rowIdx}">
+                        <img src="https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=1200" class="v-img v-before">
+                        <img src="https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=1200" class="v-img v-after">
+                        <div class="v-handle"></div>
+                    </div>
+                    <!-- 循环悬浮传送带 (5张图) -->
+                    <div class="reel">
+                        <div class="reel-track" id="track${rowIdx}">
+                            ${[1,2,3,4,5,1,2].map(num => `
+                                <div class="thumb ${num===1?'active':''}" data-img="https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=1200">
+                                    <img src="https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=400">
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>
+                </div>
+            `;
+            showcaseTarget.innerHTML += rowHTML;
+        });
+
+        // 交互逻辑
+        function initInteractions() {
+            taskNames.forEach((_, i) => {
+                const id = (i + 1).toString().padStart(2, '0');
+                const v = document.getElementById(`v${id}`);
+                const after = v.querySelector('.v-after');
+                const handle = v.querySelector('.v-handle');
+                const before = v.querySelector('.v-before');
+
+                // 模拟处理前效果
+                before.style.filter = "brightness(0.5) contrast(1.2) grayscale(0.6)";
+
+                // 1. 滑动逻辑
+                const move = (e) => {
+                    const rect = v.getBoundingClientRect();
+                    let x = (e.clientX || e.touches[0].clientX) - rect.left;
+                    let pct = Math.max(0, Math.min(100, (x / rect.width) * 100));
+                    after.style.clipPath = `inset(0 0 0 ${pct}%)`;
+                    handle.style.left = `${pct}%`;
+                };
+                v.onmousemove = move;
+                v.ontouchmove = move;
+
+                // 2. 缩略图点击切换
+                const thumbs = document.getElementById(`track${id}`).querySelectorAll('.thumb');
+                thumbs.forEach(t => {
+                    t.onclick = () => {
+                        thumbs.forEach(th => th.classList.remove('active'));
+                        t.classList.add('active');
+                        const src = t.getAttribute('data-img');
+                        v.querySelector('.v-after').src = src;
+                        v.querySelector('.v-before').src = src;
+                    };
+                });
+            });
+        }
+
+        window.onload = initInteractions;
+    </script>
+</body>
+</html>
