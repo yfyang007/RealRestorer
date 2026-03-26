@@ -467,9 +467,10 @@ button {
 .bar-name {
   min-height: 2.4em;
   text-align: center;
-  font-size: 0.78rem;
+  font-size: 0.82rem;
   line-height: 1.35;
   color: #52617b;
+  font-weight: 800;
 }
 
 .bar-card.is-highlight .bar-name {
@@ -815,7 +816,7 @@ button {
   top: 0;
   bottom: 0;
   left: var(--split);
-  width: 2px;
+  width: 3px;
   transform: translateX(-50%);
   background: rgba(255, 255, 255, 0.96);
   box-shadow: 0 0 20px rgba(24, 35, 58, 0.16);
