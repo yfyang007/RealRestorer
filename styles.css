@@ -482,6 +482,28 @@ button {
   padding-bottom: 20px;
 }
 
+.citation-section {
+  padding-bottom: 56px;
+}
+
+.citation-panel {
+  margin-top: 22px;
+  padding: 0;
+  overflow: hidden;
+}
+
+.citation-block {
+  margin: 0;
+  padding: 26px 30px;
+  overflow-x: auto;
+  color: #21304c;
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 0.96rem;
+  line-height: 1.7;
+  background:
+    linear-gradient(180deg, rgba(250, 251, 255, 0.96) 0%, rgba(241, 245, 252, 0.92) 100%);
+}
+
 .results-list {
   display: flex;
   flex-direction: column;
@@ -1033,6 +1055,11 @@ button {
 
   .results-list {
     gap: 20px;
+  }
+
+  .citation-block {
+    padding: 20px 18px;
+    font-size: 0.84rem;
   }
 
   .showcase-row {
