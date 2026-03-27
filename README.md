@@ -13,8 +13,8 @@
 </p>
 
 ## News
-
-- [03/2026] We have released the RealRestorer repository, checkpoints, and RealIR-Bench.
+- [2026/03/26] We have released a new benchmark for real-world image degradation, [RealIR-Bench](https://huggingface.co/datasets/RealRestorer/RealIR-Bench).
+- [2026/03/26] We have released the RealRestorer data pipeline and [model weights](https://huggingface.co/RealRestorer/RealRestorer).
 
 ## TODO
 
@@ -26,18 +26,7 @@
 
 ## Quick Start
 
-### 1. Links
-
-| Resource | Address |
-| --- | --- |
-| Project Page | `https://yfyang007.github.io/RealRestorer/` |
-| Paper | `https://arxiv.org/abs/2603.25502` |
-| GitHub Repository | `https://github.com/yfyang007/RealRestorer` |
-| RealRestorer Model | `https://huggingface.co/RealRestorer/RealRestorer` |
-| Degradation Models | `https://huggingface.co/RealRestorer/RealRestorer_degradation_models` |
-| RealIR-Bench | `https://huggingface.co/datasets/RealRestorer/RealIR-Bench` |
-
-### 2. Installation
+### 1. Installation
 
 This project relies on the patched local `diffusers/` checkout in this repository.
 
@@ -61,7 +50,7 @@ You can verify the environment with:
 python -c "from diffusers import RealRestorerPipeline; print(RealRestorerPipeline.__name__)"
 ```
 
-### 3. Recommended Inference Config
+### 2. Recommended Inference Config
 
 - Device: `cuda`
 - Torch dtype: `bfloat16`
@@ -69,7 +58,7 @@ python -c "from diffusers import RealRestorerPipeline; print(RealRestorerPipelin
 - Guidance scale: `3.0`
 - Recommended seed: `42`
 
-### 4. Task Prompts
+### 3. Task Prompts
 
 | Task | English Prompt | 中文 Prompt |
 | --- | --- | --- |
