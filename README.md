@@ -2,6 +2,7 @@
   <h2>RealRestorer: Towards Generalizable Real-World Image Restoration with Large-Scale Image Editing Models</h2>
   <p>
     <a href="https://yfyang007.github.io/RealRestorer/"><img src="https://img.shields.io/badge/Project-Page-blue.svg" alt="Project Page"/></a>
+    <a href="https://arxiv.org/abs/2603.25502"><img src="https://img.shields.io/badge/arXiv-2603.25502-b31b1b.svg" alt="arXiv Paper"/></a>
     <a href="https://huggingface.co/RealRestorer/RealRestorer"><img src="https://img.shields.io/badge/HuggingFace-Model-yellow.svg" alt="HuggingFace Model"/></a>
     <a href="https://huggingface.co/datasets/RealRestorer/RealIR-Bench"><img src="https://img.shields.io/badge/HuggingFace-RealIR--Bench-green.svg" alt="RealIR-Bench"/></a>
   </p>
@@ -22,13 +23,6 @@
 - [x] Open-source the RealRestorer model weights.
 - [ ] Open-source the Qwen-Image-Edit-2511 version.
 
-## Benchmark
-
-RealIR-Bench evaluates restoration quality with a VLM-based scoring pipeline together with LPIPS. The final score is defined as:
-
-```text
-FS = 0.2 * VLM_Score_Diff * (1 - LPIPS)
-```
 
 ## Quick Start
 
@@ -37,6 +31,7 @@ FS = 0.2 * VLM_Score_Diff * (1 - LPIPS)
 | Resource | Address |
 | --- | --- |
 | Project Page | `https://yfyang007.github.io/RealRestorer/` |
+| Paper | `https://arxiv.org/abs/2603.25502` |
 | GitHub Repository | `https://github.com/yfyang007/RealRestorer` |
 | RealRestorer Model | `https://huggingface.co/RealRestorer/RealRestorer` |
 | Degradation Models | `https://huggingface.co/RealRestorer/RealRestorer_degradation_models` |
@@ -141,3 +136,18 @@ python3 evaluate_realir_bench.py \
 
 For degradation-specific evaluation, set `--task` to the corresponding restoration target such as `blur`, `noise`, `rain`, `moire`, or `reflection`.
 
+## Citation
+
+If you find RealRestorer useful in your research, please star and cite:
+
+```bibtex
+@misc{yang2026realrestorergeneralizablerealworldimage,
+      title={RealRestorer: Towards Generalizable Real-World Image Restoration with Large-Scale Image Editing Models},
+      author={Yufeng Yang and Xianfang Zeng and Zhangqi Jiang and Fukun Yin and Jianzhuang Liu and Wei Cheng and jinghong lan and Shiyu Liu and Yuqi Peng and Gang YU and Shifeng Chen},
+      year={2026},
+      eprint={2603.25502},
+      archivePrefix={arXiv},
+      primaryClass={cs.CV},
+      url={https://arxiv.org/abs/2603.25502},
+}
+```
