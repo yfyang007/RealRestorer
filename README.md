@@ -58,6 +58,8 @@ python -c "from diffusers import RealRestorerPipeline; print(RealRestorerPipelin
 - Guidance scale: `3.0`
 - Recommended seed: `42`
 
+For practical deployment, we recommend using inputs around `1024 x 1024`, which offers a good balance between restoration quality, runtime, and memory usage in the current release. Under the recommended configuration above, the peak GPU memory usage is about `34 GB`.
+
 ### 3. Task Prompts
 
 | Task | English Prompt | 中文 Prompt |
