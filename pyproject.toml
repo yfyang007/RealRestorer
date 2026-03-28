@@ -23,6 +23,7 @@ dependencies = [
   "timm",
   "einops",
   "huggingface_hub",
+  "gradio",
 ]
 
 [project.scripts]

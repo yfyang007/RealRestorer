@@ -42,6 +42,7 @@ hf-xet==1.2.0
 httpcore==1.0.9
 httpx==0.28.1
 huggingface_hub==0.36.2
+gradio>=5.0.0
 idna==3.7
 ImageIO==2.37.3
 imageio-ffmpeg==0.6.0
@@ -114,4 +115,3 @@ xxhash==3.5.0
 yarl==1.18.0
 yunchang==0.6.4
 zipp==3.23.0
-
