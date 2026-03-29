@@ -5,6 +5,7 @@
     <a href="https://arxiv.org/abs/2603.25502"><img src="https://img.shields.io/badge/arXiv-2603.25502-b31b1b.svg" alt="arXiv Paper"/></a>
     <a href="https://huggingface.co/RealRestorer/RealRestorer"><img src="https://img.shields.io/badge/HuggingFace-Model-yellow.svg" alt="HuggingFace Model"/></a>
     <a href="https://huggingface.co/datasets/RealRestorer/RealIR-Bench"><img src="https://img.shields.io/badge/HuggingFace-RealIR--Bench-green.svg" alt="RealIR-Bench"/></a>
+    <a href="https://huggingface.co/spaces/dericky286/RealRestorer-Demo"><img src="https://img.shields.io/badge/HuggingFace-Demo-orange.svg" alt="HuggingFace Demo"/></a>
   </p>
 </div>
 
@@ -13,6 +14,7 @@
 </p>
 
 ## News
+- [2026/03/29] We have released the [Hugging Face demo](https://huggingface.co/spaces/dericky286/RealRestorer-Demo) for RealRestorer.
 - [2026/03/26] We have released a new benchmark for real-world image degradation, [RealIR-Bench](https://huggingface.co/datasets/RealRestorer/RealIR-Bench).
 - [2026/03/26] We have released the RealRestorer data pipeline and [model weights](https://huggingface.co/RealRestorer/RealRestorer).
 
