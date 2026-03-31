@@ -18,6 +18,15 @@
 - [2026/03/26] We have released a new benchmark for real-world image degradation, [RealIR-Bench](https://huggingface.co/datasets/RealRestorer/RealIR-Bench).
 - [2026/03/26] We have released the RealRestorer data pipeline and [model weights](https://huggingface.co/RealRestorer/RealRestorer).
 
+
+## Community Contributions
+
+A community implementation for ComfyUI is available here:
+
+- [Comfyui_RealRestorer](https://github.com/StartHua/Comfyui_RealRestorer)  
+  Thanks to [@StartHua](https://github.com/StartHua) for making this possible.
+
+
 ## TODO
 
 - [x] Open-source the inference code, degradation pipeline code, and RealIR-Bench evaluation code.
@@ -128,6 +137,8 @@ python3 evaluate_realir_bench.py \
 ```
 
 For degradation-specific evaluation, set `--task` to the corresponding restoration target such as `blur`, `noise`, `rain`, `moire`, or `reflection`.
+
+
 
 ## Citation
 
