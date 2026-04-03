@@ -23,10 +23,10 @@
 
 A community implementation for ComfyUI is available here:
 
-- [Comfyui_RealRestorer](https://github.com/StartHua/Comfyui_RealRestorer)  
-  Thanks to [@StartHua](https://github.com/StartHua) for making this possible.
 - [ComfyUI-RealRestorer](https://github.com/yfyang007/ComfyUI-RealRestorer)  
   Special thanks to [CCP6](https://huggingface.co/CCP6) for support and community contribution.
+- [Comfyui_RealRestorer](https://github.com/StartHua/Comfyui_RealRestorer)  
+  Thanks to [@StartHua](https://github.com/StartHua) for making this possible.
 
 
 ## TODO
