@@ -583,7 +583,7 @@ class RealRestorerPipeline(DiffusionPipeline):
             ref_images_raw = self.load_image(resized_image).to(device=device, dtype=torch.float32)
             height, width = ref_images_raw.shape[-2:]
             ref_latents_tensor = self._encode_vae_image(ref_images_raw)
-            ref_latents = self._pack_latents(ref_latents_tensor.to(device=device, dtype=torch.bfloat16))
+            ref_latents = self._pack_latents(ref_latents_tensor.to(device=device, dtype=self.transformer.dtype))
 
         if height is None or width is None:
             raise ValueError("Both height and width must be resolved before sampling.")
@@ -597,7 +597,7 @@ class RealRestorerPipeline(DiffusionPipeline):
             ),
             generator=generator,
             device=device,
-            dtype=torch.bfloat16,
+            dtype=self.transformer.dtype,
         )
         latents = self._pack_latents(noise)
 

@@ -26,6 +26,30 @@ DTYPE_MAP = {
     "bf16": torch.bfloat16,
 }
 
+def _default_device() -> str:
+    """Pick the best available accelerator: CUDA > MPS (Apple Silicon) > CPU."""
+    if torch.cuda.is_available():
+        return "cuda"
+    if hasattr(torch.backends, "mps") and torch.backends.mps.is_available():
+        return "mps"
+    return "cpu"
+
+
+def _default_attn_mode() -> str:
+    """'flash' if flash_attn is importable (CUDA-only), otherwise 'torch'.
+
+    The 'torch' path uses F.scaled_dot_product_attention, which has a working
+    MPS implementation since PyTorch 2.5. The model code already auto-falls
+    back to 'torch' at call time when flash_attn is None, but selecting it
+    here surfaces the correct mode in --mode arg defaults.
+    """
+    try:
+        from flash_attn.flash_attn_interface import flash_attn_func  # noqa: F401
+        return "flash"
+    except Exception:
+        return "torch"
+
+
 DEFAULT_T2I_NEGATIVE_PROMPT = (
     "worst quality, wrong limbs, unreasonable limbs, normal quality, "
     "low quality, low res, blurry, text, watermark, logo, banner, "
@@ -67,15 +91,15 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--height", type=int, default=1024, help="Output height for t2i.")
     parser.add_argument("--width", type=int, default=1024, help="Output width for t2i.")
 
-    parser.add_argument("--device", type=str, default="cuda", help="Torch device.")
+    parser.add_argument("--device", type=str, default=_default_device(), help="Torch device.")
     parser.add_argument(
         "--torch_dtype",
         type=str,
         default="bfloat16",
         choices=sorted(DTYPE_MAP),
-        help="Inference dtype.",
+        help="Inference dtype. bfloat16 works on both CUDA and MPS (Apple Silicon, macOS 14+).",
     )
-    parser.add_argument("--mode", type=str, default="flash", help="Attention mode for source loading.")
+    parser.add_argument("--mode", type=str, default=_default_attn_mode(), help="Attention mode for source loading.")
     parser.add_argument(
         "--version",
         type=str,
