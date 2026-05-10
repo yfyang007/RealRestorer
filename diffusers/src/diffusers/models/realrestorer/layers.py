@@ -21,9 +21,18 @@ except ImportError:
     flash_attn_varlen_func = None
 
 
+def _accelerator_device():
+    if torch.cuda.is_available():
+        return torch.device("cuda")
+    if hasattr(torch.backends, "mps") and torch.backends.mps.is_available():
+        return torch.device("mps")
+    return torch.device("cpu")
+
+
 def to_cuda(x):
+    dev = _accelerator_device()
     if isinstance(x, torch.Tensor):
-        return x.cuda()
+        return x.to(dev)
     if isinstance(x, (list, tuple)):
         return [to_cuda(elem) for elem in x]
     if isinstance(x, dict):
@@ -268,7 +277,11 @@ class MLPEmbedder(nn.Module):
 def rope(pos, dim: int, theta: int):
     if dim % 2 != 0:
         raise ValueError("RoPE dimension must be even.")
-    scale = torch.arange(0, dim, 2, dtype=torch.float64, device=pos.device) / dim
+    # MPS lacks float64 support; downcast to float32 there. The function returns
+    # `.float()` anyway, so the precision loss is bounded to the omega/cos/sin
+    # intermediate (negligible for theta=10000, head_dim<=128).
+    rope_dtype = torch.float32 if pos.device.type == "mps" else torch.float64
+    scale = torch.arange(0, dim, 2, dtype=rope_dtype, device=pos.device) / dim
     omega = 1.0 / (theta**scale)
     out = torch.einsum("...n,d->...nd", pos, omega)
     out = torch.stack([torch.cos(out), -torch.sin(out), torch.sin(out), torch.cos(out)], dim=-1)

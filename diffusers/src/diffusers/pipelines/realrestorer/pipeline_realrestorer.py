@@ -583,7 +583,7 @@ class RealRestorerPipeline(DiffusionPipeline):
             ref_images_raw = self.load_image(resized_image).to(device=device, dtype=torch.float32)
             height, width = ref_images_raw.shape[-2:]
             ref_latents_tensor = self._encode_vae_image(ref_images_raw)
-            ref_latents = self._pack_latents(ref_latents_tensor.to(device=device, dtype=torch.bfloat16))
+            ref_latents = self._pack_latents(ref_latents_tensor.to(device=device, dtype=self.transformer.dtype))
 
         if height is None or width is None:
             raise ValueError("Both height and width must be resolved before sampling.")
@@ -597,7 +597,7 @@ class RealRestorerPipeline(DiffusionPipeline):
             ),
             generator=generator,
             device=device,
-            dtype=torch.bfloat16,
+            dtype=self.transformer.dtype,
         )
         latents = self._pack_latents(noise)
 
@@ -607,6 +607,13 @@ class RealRestorerPipeline(DiffusionPipeline):
             ref_images_raw,
             edit_type=1 if task_type == "edit" else 0,
         )
+        # When CFG is off (guidance_scale == -1), drop the unconditional embed
+        # so that downstream tensors (txt_ids/img_ids) are built at batch=1.
+        # This matches the denoise loop, which already skips the cond/uncond split
+        # when guidance_scale == -1.
+        if guidance_scale == -1:
+            prompt_embeds = prompt_embeds[:1]
+            prompt_mask = prompt_mask[:1]
         txt_ids = torch.zeros(
             prompt_embeds.shape[0],
             prompt_embeds.shape[1],
